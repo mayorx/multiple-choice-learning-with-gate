@@ -234,48 +234,36 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         input_var = Variable(input)
         target_var = Variable(target)
 
-        # compute output
-        outputs = [None] * model_num
-        for idx in range(model_num):
-            outputs[idx] = models[idx](input_var)
+        pred_var = gate(input_var)
 
-        pred = gate(input_var)
-        loss = 0
-
-        losses_detail = pred.data.clone()
+        losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
 
         for i in range(model_num):
-            #f_loss = criterion(outputs[i], target_var) * pred[:, i].contiguous().view(-1, 1)
-            f_loss = criterion(outputs[i], target_var)
-            # print('train f loss: {}'.format(f_loss))
-            # print('pred[:, {}] = {}'.format(i, pred[:, i]))
-            # print('mul : {}'.format(f_loss * pred[:, i]))
-            # print('mean: {}'.format((f_loss * pred[:, i]).mean()))
-
-            losses_detail[:, i] = f_loss.data
-            # print(f_loss)
-            # print(pred[:, i])
-            loss = loss + (f_loss * pred[:, i]).mean()
-            prec = accuracy(outputs[i].data, target)[0]
+            output = models[i](input_var)
+            losses_detail_var[:, i] = criterion(output, target_var)
+            prec = accuracy(output.data, target)[0]
             top1[i].update(prec[0], input.size(0))
-            losses[i].update(f_loss.mean().data[0], input.size(0))
+            # losses[i].update(f_loss.mean().data[0], input.size(0))
 
-        _, min_loss_idx = losses_detail.topk(1, 1, False, True)
-        _, max_pred_idx = pred.data.topk(1, 1, True, True)
+        min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
+        experts_loss = min_loss_value.mean()
+
+        gate_loss = criterion(pred_var, min_loss_idx[:, 0]).mean()
+        _, max_pred_idx = pred_var.topk(1, 1, True, True)
 
         gate_pred_correct += (min_loss_idx == max_pred_idx).sum()
 
+        gate_optimizer.zero_grad()
+        gate_loss.backward()
+        gate_optimizer.step()
 
         for i in range(model_num):
             optimizers[i].zero_grad()
-        gate_optimizer.zero_grad()
-        loss.backward()
-        gate_optimizer.step()
+        experts_loss.backward()
         for i in range(model_num):
             optimizers[i].step()
 
     for idx in range(model_num):
-        # print(losses[idx].avg)
         print('model {0}\t Train: Loss {loss.avg:.4f} Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
 
     print('gate predict correct Train {}/{} {:.2f}%\n\n'.format(gate_pred_correct, len(trainloader.dataset),100. * gate_pred_correct / len(trainloader.dataset)))
@@ -414,11 +402,13 @@ def accuracy(output, target, topk=(1,)):
 
 def gate_factory(gate_type, model_num):
     if gate_type == 1:
-        return GateNet(model_num)
+        return GateNet(num_classes=model_num) #softmax as output
     elif gate_type == 2:
-        return gate_resnet(num_classes=model_num)
+        return gate_resnet(num_classes=model_num) #softmax as output
     elif gate_type == 3:
-        return
+        return resnet32_cifar(num_classes=model_num) #regular output
+    elif gate_type == 4:
+        return GateNet(model_nums=model_num, sm=0) #regular output
     else:
         raise('gate type not found :{}'.format(gate_type))
 
