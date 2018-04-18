@@ -69,15 +69,15 @@ def main():
         #     os.makedirs(fdir)
 
         # adjust the lr according to the model type
-        if isinstance(model, (ResNet_Cifar, PreAct_ResNet_Cifar)):
-            model_type = 1
-        elif isinstance(model, Wide_ResNet_Cifar):
-            model_type = 2
-        elif isinstance(model, (ResNeXt_Cifar, DenseNet_Cifar)):
-            model_type = 3
-        else:
-            print('model type unrecognized...')
-            return
+        # if isinstance(model, (ResNet_Cifar, PreAct_ResNet_Cifar)):
+        #     model_type = 1
+        # elif isinstance(model, Wide_ResNet_Cifar):
+        #     model_type = 2
+        # elif isinstance(model, (ResNeXt_Cifar, DenseNet_Cifar)):
+        #     model_type = 3
+        # else:
+        #     print('model type unrecognized...')
+        #     return
 
         model = nn.DataParallel(model).cuda()
         criterion = nn.CrossEntropyLoss().cuda()
@@ -159,7 +159,7 @@ def main():
 
     print_important_args(args)
     for epoch in range(args.start_epoch, args.epochs):
-        adjust_learning_rate(optimizer, epoch, model_type)
+        adjust_learning_rate(optimizer, epoch)
 
         # train for one epoch
         train(trainloader, model, criterion, optimizer, epoch)
@@ -288,7 +288,7 @@ def save_checkpoint(state, is_best, fdir):
         shutil.copyfile(filepath, os.path.join(fdir, 'model_best.pth.tar'))
 
 
-def adjust_learning_rate(optimizer, epoch, model_type):
+def adjust_learning_rate(optimizer, epoch):
     global now_learning_rate
     if epoch < 60:
         lr = args.lr
