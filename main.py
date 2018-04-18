@@ -29,7 +29,6 @@ parser.add_argument('--resume', default='', type=str, metavar='PATH', help='path
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true', help='evaluate model on validation set')
 parser.add_argument('-ct', '--cifar-type', default='10', type=int, metavar='CT', help='10 for cifar10,100 for cifar100 (default: 10)')
 parser.add_argument('--model-num', default='2', type=int, metavar='MN', help='the number of models')
-parser.add_argument('--gate-type', default='1', type=int, metavar='GT', help='the type of gate')
 
 best_prec = 0
 now_learning_rate = 0
@@ -78,7 +77,6 @@ def main():
         # else:
         #     print('model type unrecognized...')
         #     return
-        gate = gate_factory(args.gate_type, args.model_num)
         models = []
         optimizers = []
         for i in range(0, args.model_num):
@@ -89,9 +87,6 @@ def main():
             models.append(model)
             optimizers.append(optimizer)
 
-        gate = nn.DataParallel(gate).cuda()
-        gate_optimizer = optim.SGD(gate.parameters(), args.lr, momentum=args.momentum, weight_decay=args.weight_decay,
-                                   nesterov=True)
         criterion = nn.CrossEntropyLoss(reduce=False).cuda()
         cudnn.benchmark = True
     else:
@@ -174,14 +169,13 @@ def main():
     for epoch in range(args.start_epoch, args.epochs):
         for opti in optimizers:
             adjust_learning_rate(opti, epoch)
-        adjust_learning_rate(gate_optimizer, epoch)
 
         print('Epoch: {0}\t LR = {lr:.4f}'.format(epoch, lr=now_learning_rate))
         # train for one epoch
-        train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
+        train(trainloader, criterion, models, optimizers, epoch)
 
         # evaluate on test set
-        prec = validate(testloader, models, gate, criterion)
+        prec = validate(testloader, models, criterion)
 
         end_time = time.time()
         passed_time = end_time - start_time
@@ -215,12 +209,11 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch):
+def train(trainloader, criterion, models, optimizers, epoch):
     model_num = len(models)
 
     for model in models:
         model.train()
-    gate.train()
 
     losses = []
     top1 = []
@@ -228,13 +221,11 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         losses.append(AverageMeter())
         top1.append(AverageMeter())
 
-    gate_pred_correct = 0
     for ix, (input, target) in enumerate(trainloader):
         input, target = input.cuda(), target.cuda()
         input_var = Variable(input)
         target_var = Variable(target)
 
-        pred_var = gate(input_var)
 
         losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
 
@@ -248,15 +239,6 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
         experts_loss = min_loss_value.mean()
 
-        gate_loss = criterion(pred_var, min_loss_idx[:, 0]).mean()
-        _, max_pred_idx = pred_var.topk(1, 1, True, True)
-
-        gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
-
-        gate_optimizer.zero_grad()
-        gate_loss.backward()
-        gate_optimizer.step()
-
         for i in range(model_num):
             optimizers[i].zero_grad()
         experts_loss.backward()
@@ -266,15 +248,13 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
     for idx in range(model_num):
         print('model {0}\t Train: Loss {loss.avg:.4f} Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
 
-    print('gate predict correct Train {}/{} {:.2f}%\n\n'.format(gate_pred_correct, len(trainloader.dataset),100. * gate_pred_correct / len(trainloader.dataset)))
 
-def validate(val_loader, models, gate, criterion):
+def validate(val_loader, models, criterion):
     model_num = len(models)
 
     # switch to evaluate mode
     for model in models:
         model.eval()
-    gate.eval()
 
     losses = []
     top1 = []
@@ -291,7 +271,6 @@ def validate(val_loader, models, gate, criterion):
         target_var = Variable(target, volatile=True)
 
         # compute output
-        pred_var = F.softmax(gate(input_var), dim=1)
         losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
 
         final_predicts = None
@@ -388,20 +367,8 @@ def accuracy(output, target, topk=(1,)):
         res.append(correct_k.mul_(100.0 / batch_size))
     return res
 
-def gate_factory(gate_type, model_num):
-    if gate_type == 1:
-        return GateNet(num_classes=model_num) #softmax as output
-    elif gate_type == 2:
-        return gate_resnet(num_classes=model_num) #softmax as output
-    elif gate_type == 3:
-        return resnet32_cifar(num_classes=model_num) #regular output
-    elif gate_type == 4:
-        return GateNet(model_nums=model_num, sm=0) #regular output
-    else:
-        raise('gate type not found :{}'.format(gate_type))
-
 def print_important_args(args):
-    print('momentum {momentum} weight-decay {wd} batch-size {bs} model-num {mn} gate-type {gt}'.format(momentum=args.momentum, wd=args.weight_decay, bs=args.batch_size, mn=args.model_num, gt=args.gate_type))
+    print('momentum {momentum} weight-decay {wd} batch-size {bs} model-num {mn}'.format(momentum=args.momentum, wd=args.weight_decay, bs=args.batch_size, mn=args.model_num))
 
 if __name__=='__main__':
     main()
