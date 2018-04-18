@@ -343,6 +343,16 @@ def accuracy(output, target, topk=(1,)):
         res.append(correct_k.mul_(100.0 / batch_size))
     return res
 
+def gate_factory(gate_type, model_num):
+    if gate_type == 1:
+        return GateNet(model_num)
+    elif gate_type == 2:
+        return gate_resnet(num_classes=model_num)
+    elif gate_type == 3:
+        return
+    else:
+        raise('gate type not found :{}'.format(gate_type))
+
 def print_important_args(args):
     print('momentum {momentum} weight-decay {wd} batch-size {bs} model-num {mn} gate-type {gt}'.format(momentum=args.momentum, wd=args.weight_decay, bs=args.batch_size, mn=args.model_num, gt=args.gate_type))
 
