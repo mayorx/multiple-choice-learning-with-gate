@@ -28,6 +28,8 @@ parser.add_argument('--print-freq', '-p', default=10, type=int, metavar='N', hel
 parser.add_argument('--resume', default='', type=str, metavar='PATH', help='path to latest checkpoint (default: none)')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true', help='evaluate model on validation set')
 parser.add_argument('-ct', '--cifar-type', default='10', type=int, metavar='CT', help='10 for cifar10,100 for cifar100 (default: 10)')
+parser.add_argument('--model-num', default='2', type=int, metavar='MN', help='the number of models')
+parser.add_argument('--gate-type', default='1', type=int, metavar='GT', help='the type of gate')
 
 best_prec = 0
 
@@ -154,6 +156,7 @@ def main():
         validate(testloader, model, criterion)
         return
 
+    print_important_args(args)
     for epoch in range(args.start_epoch, args.epochs):
         adjust_learning_rate(optimizer, epoch, model_type)
 
@@ -328,6 +331,8 @@ def accuracy(output, target, topk=(1,)):
         res.append(correct_k.mul_(100.0 / batch_size))
     return res
 
+def print_important_args(args):
+    print('momentum {momentum} weight-decay {wd} batch-size {bs} model-num {mn} gate-type {gt}'.format(momentum=args.momentum, wd=args.weight_decay, bs=args.batch_size, mn=args.model_num, gt=args.gate_type))
 
 if __name__=='__main__':
     main()
