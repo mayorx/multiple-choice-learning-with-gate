@@ -209,49 +209,70 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-def train(trainloader, model, criterion, optimizer, epoch):
-    batch_time = AverageMeter()
-    data_time = AverageMeter()
-    losses = AverageMeter()
-    top1 = AverageMeter()
+def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch):
+    model_num = len(models)
 
-    model.train()
+    for model in models:
+        model.train()
+    gate.train()
 
-    end = time.time()
-    for i, (input, target) in enumerate(trainloader):
-        # measure data loading time
-        data_time.update(time.time() - end)
+    losses = []
+    top1 = []
+    for idx in range(model_num):
+        losses.append(AverageMeter())
+        top1.append(AverageMeter())
 
+    gate_pred_correct = 0
+    for ix, (input, target) in enumerate(trainloader):
         input, target = input.cuda(), target.cuda()
         input_var = Variable(input)
         target_var = Variable(target)
 
         # compute output
-        output = model(input_var)
-        loss = criterion(output, target_var)
+        outputs = [None] * model_num
+        for idx in range(model_num):
+            outputs[idx] = models[idx](input_var)
 
-        # measure accuracy and record loss
-        prec = accuracy(output.data, target)[0]
-        losses.update(loss.data[0], input.size(0))
-        top1.update(prec[0], input.size(0))
+        pred = gate(input_var)
+        loss = 0
 
-        # compute gradient and do SGD step
-        optimizer.zero_grad()
+        losses_detail = pred.data.clone()
+
+        for i in range(model_num):
+            #f_loss = criterion(outputs[i], target_var) * pred[:, i].contiguous().view(-1, 1)
+            f_loss = criterion(outputs[i], target_var)
+            # print('train f loss: {}'.format(f_loss))
+            # print('pred[:, {}] = {}'.format(i, pred[:, i]))
+            # print('mul : {}'.format(f_loss * pred[:, i]))
+            # print('mean: {}'.format((f_loss * pred[:, i]).mean()))
+
+            losses_detail[:, i] = f_loss.data
+            # print(f_loss)
+            # print(pred[:, i])
+            loss = loss + (f_loss * pred[:, i]).mean()
+            prec = accuracy(outputs[i].data, target)[0]
+            top1[i].update(prec[0], input.size(0))
+            losses[i].update(f_loss.mean().data[0], input.size(0))
+
+        _, min_loss_idx = losses_detail.topk(1, 1, False, True)
+        _, max_pred_idx = pred.data.topk(1, 1, True, True)
+
+        gate_pred_correct += (min_loss_idx == max_pred_idx).sum()
+
+
+        for i in range(model_num):
+            optimizers[i].zero_grad()
+        gate_optimizer.zero_grad()
         loss.backward()
-        optimizer.step()
+        gate_optimizer.step()
+        for i in range(model_num):
+            optimizers[i].step()
 
-        # measure elapsed time
-        batch_time.update(time.time() - end)
-        end = time.time()
+    for idx in range(model_num):
+        # print(losses[idx].avg)
+        print('model {0}\t Train: Loss {loss.avg:.4f} Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
 
-        if i % args.print_freq == 0:
-            print('Epoch: [{0}][{1}/{2}]\t'
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Prec {top1.val:.3f}% ({top1.avg:.3f}%)'.format(
-                   epoch, i, len(trainloader), batch_time=batch_time,
-                   data_time=data_time, loss=losses, top1=top1))
+    print('gate predict correct Train {}/{} {:.2f}%\n\n'.format(gate_pred_correct, len(trainloader.dataset),100. * gate_pred_correct / len(trainloader.dataset)))
 
 
 def validate(val_loader, model, criterion):
