@@ -59,11 +59,11 @@ def main():
         #model = densenet_BC_cifar(depth=190, k=40, num_classes=100)
 
         # mkdir a new folder to store the checkpoint and best model
-        if not os.path.exists('result'):
-            os.makedirs('result')
-        fdir = 'result/resnet20_cifar10'
-        if not os.path.exists(fdir):
-            os.makedirs(fdir)
+        # if not os.path.exists('result'):
+        #     os.makedirs('result')
+        # fdir = 'result/resnet20_cifar10'
+        # if not os.path.exists(fdir):
+        #     os.makedirs(fdir)
 
         # adjust the lr according to the model type
         if isinstance(model, (ResNet_Cifar, PreAct_ResNet_Cifar)):
@@ -84,17 +84,17 @@ def main():
         print('Cuda is not available!')
         return
 
-    if args.resume:
-        if os.path.isfile(args.resume):
-            print('=> loading checkpoint "{}"'.format(args.resume))
-            checkpoint = torch.load(args.resume)
-            args.start_epoch = checkpoint['epoch']
-            best_prec = checkpoint['best_prec']
-            model.load_state_dict(checkpoint['state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer'])
-            print("=> loaded checkpoint '{}' (epoch {})".format(args.resume, checkpoint['epoch']))
-        else:
-            print("=> no checkpoint found at '{}'".format(args.resume))
+    # if args.resume:
+    #     if os.path.isfile(args.resume):
+    #         print('=> loading checkpoint "{}"'.format(args.resume))
+    #         checkpoint = torch.load(args.resume)
+    #         args.start_epoch = checkpoint['epoch']
+    #         best_prec = checkpoint['best_prec']
+    #         model.load_state_dict(checkpoint['state_dict'])
+    #         optimizer.load_state_dict(checkpoint['optimizer'])
+    #         print("=> loaded checkpoint '{}' (epoch {})".format(args.resume, checkpoint['epoch']))
+    #     else:
+    #         print("=> no checkpoint found at '{}'".format(args.resume))
 
     # Data loading and preprocessing
     # CIFAR10
@@ -166,12 +166,12 @@ def main():
         # remember best precision and save checkpoint
         is_best = prec > best_prec
         best_prec = max(prec,best_prec)
-        save_checkpoint({
-            'epoch': epoch + 1,
-            'state_dict': model.state_dict(),
-            'best_prec': best_prec,
-            'optimizer': optimizer.state_dict(),
-        }, is_best, fdir)
+        # save_checkpoint({
+        #     'epoch': epoch + 1,
+        #     'state_dict': model.state_dict(),
+        #     'best_prec': best_prec,
+        #     'optimizer': optimizer.state_dict(),
+        # }, is_best, fdir)
 
 
 class AverageMeter(object):
