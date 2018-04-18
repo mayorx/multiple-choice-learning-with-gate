@@ -175,7 +175,7 @@ def main():
         train(trainloader, criterion, models, optimizers, epoch)
 
         # evaluate on test set
-        prec = validate(testloader, models, criterion)
+        prec = validate(testloader, models, criterion, args.cifar_type)
 
         end_time = time.time()
         passed_time = end_time - start_time
@@ -226,8 +226,7 @@ def train(trainloader, criterion, models, optimizers, epoch):
         input_var = Variable(input)
         target_var = Variable(target)
 
-
-        losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
+        losses_detail_var = Variable(torch.zeros([len(target_var), model_num])).cuda()
 
         for i in range(model_num):
             output = models[i](input_var)
@@ -249,7 +248,8 @@ def train(trainloader, criterion, models, optimizers, epoch):
         print('model {0}\t Train: Loss {loss.avg:.4f} Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
 
 
-def validate(val_loader, models, criterion):
+#@todo: using standard multiple-choice-learning, beleve the one with maximize confidence.
+def validate(val_loader, models, criterion, num_classes):
     model_num = len(models)
 
     # switch to evaluate mode
@@ -264,18 +264,19 @@ def validate(val_loader, models, criterion):
 
     total_top1 = AverageMeter()
 
-    gate_pred_correct = 0
     for i, (input, target) in enumerate(val_loader):
         input, target = input.cuda(), target.cuda()
         input_var = Variable(input, volatile=True)
         target_var = Variable(target, volatile=True)
 
-        # compute output
-        losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
+        losses_detail_var = Variable(torch.zeros([len(target_var), model_num])).cuda()
 
-        final_predicts = None
+        outputs = [None] * model_num
+        pred_output = Variable(torch.zeros([len(target_var), num_classes])).cuda()
+
         for idx in range(model_num):
             output = models[idx](input_var)
+            outputs[idx] = output
 
             loss = criterion(output, target_var)
             losses_detail_var[:, idx] = loss
@@ -284,25 +285,20 @@ def validate(val_loader, models, criterion):
             # losses[idx].update(loss.data[0], input.size(0))
             top1[idx].update(prec[0], input.size(0))
 
-            tmp_predicts = F.softmax(output, dim=1) * pred_var[:, idx].contiguous().view(-1,1)
-            if idx == 0:
-                final_predicts = tmp_predicts
-            else:
-                final_predicts+= tmp_predicts
-
-        prec = accuracy(final_predicts.data, target)[0]
-        total_top1.update(prec[0], input.size(0))
-
         _, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
-        _, max_pred_idx = pred_var.topk(1, 1, True, True)
-        gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
 
+        min_loss_idx = min_loss_idx[:, 0]
+
+        for j in range(len(min_loss_idx)):
+            pred_output[j, :] = outputs[min_loss_idx[j].data[0]][j, :]
+
+        prec = accuracy(pred_output.data, target)[0]
+        total_top1.update(prec[0], input.size(0))
 
     for idx in range(model_num):
         print('model {0}\t Test: Loss {loss.avg:.4f} ,Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
 
     print('mixture of experts result: Prec {top1.avg:.3f}%'.format(top1=total_top1))
-    print('gate predict correct Test {}/{} {:.2f}%\n\n'.format(gate_pred_correct, len(val_loader.dataset),100. * gate_pred_correct / len(val_loader.dataset)))
     return total_top1.avg
 
 # def save_checkpoint(state, is_best, fdir):
