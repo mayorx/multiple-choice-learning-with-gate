@@ -284,7 +284,6 @@ def validate(val_loader, models, gate, criterion):
 
     total_top1 = AverageMeter()
 
-
     gate_pred_correct = 0
     for i, (input, target) in enumerate(val_loader):
         input, target = input.cuda(), target.cuda()
@@ -292,43 +291,32 @@ def validate(val_loader, models, gate, criterion):
         target_var = Variable(target, volatile=True)
 
         # compute output
-        pred = gate(input_var)
-
-        sample = i % 100 == 0
-        # if sample:
-        #     print('pred: {}'.format(pred.data))
-        losses_detail = pred.data.clone()
-
+        pred_var = F.softmax(gate(input_var), dim=1)
+        losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
 
         final_predicts = None
         for idx in range(model_num):
             output = models[idx](input_var)
 
             loss = criterion(output, target_var)
-            # measure accuracy and record loss
+            losses_detail_var[:, idx] = loss
+
             prec = accuracy(output.data, target)[0]
-            losses[idx].update(loss.data[0], input.size(0))
+            # losses[idx].update(loss.data[0], input.size(0))
             top1[idx].update(prec[0], input.size(0))
 
-
-            losses_detail[:, idx] = loss.data
-
-            tmp_predicts = F.softmax(output, dim=1) * pred[:, idx].contiguous().view(-1,1)
+            tmp_predicts = F.softmax(output, dim=1) * pred_var[:, idx].contiguous().view(-1,1)
             if idx == 0:
                 final_predicts = tmp_predicts
             else:
                 final_predicts+= tmp_predicts
 
-        # if sample:
-        #     print('final_predicts: {}'.format(final_predicts))
-
-
         prec = accuracy(final_predicts.data, target)[0]
         total_top1.update(prec[0], input.size(0))
 
-        _, min_loss_idx = losses_detail.topk(1, 1, False, True)
-        _, max_pred_idx = pred.data.topk(1, 1, True, True)
-        gate_pred_correct += (min_loss_idx == max_pred_idx).sum()
+        _, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
+        _, max_pred_idx = pred_var.topk(1, 1, True, True)
+        gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
 
 
     for idx in range(model_num):
