@@ -45,7 +45,7 @@ def main():
         # model can be set to anyone that I have defined in models folder
         # note the model should match to the cifar type !
 
-        model = resnet20_cifar()
+        # model = resnet20_cifar()
         # model = resnet32_cifar()
         # model = resnet44_cifar()
         # model = resnet110_cifar()
@@ -78,10 +78,21 @@ def main():
         # else:
         #     print('model type unrecognized...')
         #     return
+        gate = gate_factory(args.gate_type, args.model_num)
+        models = []
+        optimizers = []
+        for i in range(0, args.model_num):
+            model = resnet32_cifar(num_classes=100)
+            model = nn.DataParallel(model).cuda()
+            optimizer = optim.SGD(model.parameters(), args.lr, momentum=args.momentum, weight_decay=args.weight_decay,
+                                  nesterov=True)
+            models.append(model)
+            optimizers.append(optimizer)
 
-        model = nn.DataParallel(model).cuda()
+        gate = nn.DataParallel(gate).cuda()
+        gate_optimizer = optim.SGD(gate.parameters(), args.lr, momentum=args.momentum, weight_decay=args.weight_decay,
+                                   nesterov=True)
         criterion = nn.CrossEntropyLoss().cuda()
-        optimizer = optim.SGD(model.parameters(), args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
         cudnn.benchmark = True
     else:
         print('Cuda is not available!')
