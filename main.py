@@ -174,9 +174,8 @@ def main():
     for epoch in range(args.start_epoch, args.epochs):
         for opti in optimizers:
             adjust_learning_rate(opti, epoch)
-        adjust_learning_rate(gate_optimizer, epoch)
 
-        print('Epoch: {0}\t LR = {lr:.4f}'.format(epoch, lr=now_learning_rate))
+        print('Epoch: Training Experts {0}\t LR = {lr:.4f}'.format(epoch, lr=now_learning_rate))
         # train for one epoch
         train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
 
@@ -186,12 +185,32 @@ def main():
         end_time = time.time()
         passed_time = end_time - start_time
         estimated_extra_time = passed_time * (args.epochs - epoch) / (epoch - args.start_epoch + 1)
-        print('time flies very fast .. {passed_time:.2f} mins passed, about {extra:.2f} mins left.'.format(
+        print('time flies very fast .. {passed_time:.2f} mins passed, about {extra:.2f} mins left... step 1'.format(
+            passed_time=passed_time / 60, extra=estimated_extra_time / 60))
+
+        best_prec = max(prec, best_prec)
+
+    start_time = time.time()
+    for epoch in range(args.start_epoch, args.epochs):
+        adjust_learning_rate(gate_optimizer, epoch)
+
+        print('Epoch: Training Gate {0}\t LR = {lr:.4f}'.format(epoch, lr=now_learning_rate))
+        # train for one epoch
+        train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
+
+        # evaluate on test set
+        prec = validate(testloader, models, gate, criterion)
+
+        end_time = time.time()
+        passed_time = end_time - start_time
+        estimated_extra_time = passed_time * (args.epochs - epoch) / (epoch - args.start_epoch + 1)
+        print('time flies very fast .. {passed_time:.2f} mins passed, about {extra:.2f} mins left... step 1'.format(
             passed_time=passed_time / 60, extra=estimated_extra_time / 60))
 
         # remember best precision and save checkpoint
         is_best = prec > best_prec
         best_prec = max(prec, best_prec)
+
 
     print('finished. best_prec: {:.4f}'.format(best_prec))
 
@@ -220,6 +239,47 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
 
     for model in models:
         model.train()
+
+    losses = []
+    top1 = []
+    for idx in range(model_num):
+        losses.append(AverageMeter())
+        top1.append(AverageMeter())
+
+    for ix, (input, target) in enumerate(trainloader):
+        input, target = input.cuda(), target.cuda()
+        input_var = Variable(input)
+        target_var = Variable(target)
+
+        pred_var = gate(input_var)
+
+        losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
+
+        for i in range(model_num):
+            output = models[i](input_var)
+            losses_detail_var[:, i] = criterion(output, target_var)
+            prec = accuracy(output.data, target)[0]
+            top1[i].update(prec[0], input.size(0))
+
+        min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
+        experts_loss = min_loss_value.mean()
+
+        _, max_pred_idx = pred_var.topk(1, 1, True, True)
+
+
+        for i in range(model_num):
+            optimizers[i].zero_grad()
+        experts_loss.backward()
+        for i in range(model_num):
+            optimizers[i].step()
+
+    for idx in range(model_num):
+        print('model {0}\t Train: Loss {loss.avg:.4f} Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
+
+
+def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch):
+    model_num = len(models)
+
     gate.train()
 
     losses = []
@@ -257,11 +317,11 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         gate_loss.backward()
         gate_optimizer.step()
 
-        for i in range(model_num):
-            optimizers[i].zero_grad()
-        experts_loss.backward()
-        for i in range(model_num):
-            optimizers[i].step()
+        # for i in range(model_num):
+        #     optimizers[i].zero_grad()
+        # experts_loss.backward()
+        # for i in range(model_num):
+        #     optimizers[i].step()
 
     for idx in range(model_num):
         print('model {0}\t Train: Loss {loss.avg:.4f} Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
