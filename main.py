@@ -92,7 +92,7 @@ def main():
         gate = nn.DataParallel(gate).cuda()
         gate_optimizer = optim.SGD(gate.parameters(), args.lr, momentum=args.momentum, weight_decay=args.weight_decay,
                                    nesterov=True)
-        criterion = nn.CrossEntropyLoss().cuda()
+        criterion = nn.CrossEntropyLoss(reduce=False).cuda()
         cudnn.benchmark = True
     else:
         print('Cuda is not available!')
