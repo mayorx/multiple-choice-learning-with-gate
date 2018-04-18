@@ -170,13 +170,15 @@ def main():
 
     print_important_args(args)
     for epoch in range(args.start_epoch, args.epochs):
-        adjust_learning_rate(optimizer, epoch)
+        for opti in optimizers:
+            adjust_learning_rate(opti, epoch)
+        adjust_learning_rate(gate_optimizer, epoch)
 
         # train for one epoch
-        train(trainloader, model, criterion, optimizer, epoch)
+        train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
 
         # evaluate on test set
-        prec = validate(testloader, model, criterion)
+        prec = validate(testloader, models, gate, criterion)
 
         # remember best precision and save checkpoint
         is_best = prec > best_prec
