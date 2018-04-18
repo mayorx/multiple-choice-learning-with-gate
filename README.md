@@ -1,3 +1,5 @@
+该branch尝试将experts 与 gate的训练分为两步
+
 # Experiments on CIFAR datasets with PyTorch
 
 ## Introduction
