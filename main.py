@@ -350,11 +350,11 @@ def validate(val_loader, models, gate, criterion):
     print('gate predict correct Test {}/{} {:.2f}%\n\n'.format(gate_pred_correct, len(val_loader.dataset),100. * gate_pred_correct / len(val_loader.dataset)))
     return total_top1.avg
 
-def save_checkpoint(state, is_best, fdir):
-    filepath = os.path.join(fdir, 'checkpoint.pth')
-    torch.save(state, filepath)
-    if is_best:
-        shutil.copyfile(filepath, os.path.join(fdir, 'model_best.pth.tar'))
+# def save_checkpoint(state, is_best, fdir):
+#     filepath = os.path.join(fdir, 'checkpoint.pth')
+#     torch.save(state, filepath)
+#     if is_best:
+#         shutil.copyfile(filepath, os.path.join(fdir, 'model_best.pth.tar'))
 
 
 def adjust_learning_rate(optimizer, epoch):
