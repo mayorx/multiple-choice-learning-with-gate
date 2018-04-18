@@ -204,7 +204,7 @@ def main():
         end_time = time.time()
         passed_time = end_time - start_time
         estimated_extra_time = passed_time * (args.epochs - epoch) / (epoch - args.start_epoch + 1)
-        print('time flies very fast .. {passed_time:.2f} mins passed, about {extra:.2f} mins left... step 1'.format(
+        print('time flies very fast .. {passed_time:.2f} mins passed, about {extra:.2f} mins left... step 2'.format(
             passed_time=passed_time / 60, extra=estimated_extra_time / 60))
 
         # remember best precision and save checkpoint
