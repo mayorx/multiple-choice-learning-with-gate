@@ -274,46 +274,75 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
 
     print('gate predict correct Train {}/{} {:.2f}%\n\n'.format(gate_pred_correct, len(trainloader.dataset),100. * gate_pred_correct / len(trainloader.dataset)))
 
-
-def validate(val_loader, model, criterion):
-    batch_time = AverageMeter()
-    losses = AverageMeter()
-    top1 = AverageMeter()
+def validate(val_loader, models, gate, criterion):
+    model_num = len(models)
 
     # switch to evaluate mode
-    model.eval()
+    for model in models:
+        model.eval()
+    gate.eval()
 
-    end = time.time()
+    losses = []
+    top1 = []
+    for idx in range(model_num):
+        losses.append(AverageMeter())
+        top1.append(AverageMeter())
+
+    total_top1 = AverageMeter()
+
+
+    gate_pred_correct = 0
     for i, (input, target) in enumerate(val_loader):
         input, target = input.cuda(), target.cuda()
         input_var = Variable(input, volatile=True)
         target_var = Variable(target, volatile=True)
 
         # compute output
-        output = model(input_var)
-        loss = criterion(output, target_var)
+        pred = gate(input_var)
 
-        # measure accuracy and record loss
-        prec = accuracy(output.data, target)[0]
-        losses.update(loss.data[0], input.size(0))
-        top1.update(prec[0], input.size(0))
+        sample = i % 100 == 0
+        # if sample:
+        #     print('pred: {}'.format(pred.data))
+        losses_detail = pred.data.clone()
 
-        # measure elapsed time
-        batch_time.update(time.time() - end)
-        end = time.time()
 
-        if i % args.print_freq == 0:
-            print('Test: [{0}/{1}]\t'
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Prec {top1.val:.3f}% ({top1.avg:.3f}%)'.format(
-                   i, len(val_loader), batch_time=batch_time, loss=losses,
-                   top1=top1))
+        final_predicts = None
+        for idx in range(model_num):
+            output = models[idx](input_var)
 
-    print(' * Prec {top1.avg:.3f}% '.format(top1=top1))
+            loss = criterion(output, target_var)
+            # measure accuracy and record loss
+            prec = accuracy(output.data, target)[0]
+            losses[idx].update(loss.data[0], input.size(0))
+            top1[idx].update(prec[0], input.size(0))
 
-    return top1.avg
 
+            losses_detail[:, idx] = loss.data
+
+            tmp_predicts = F.softmax(output, dim=1) * pred[:, idx].contiguous().view(-1,1)
+            if idx == 0:
+                final_predicts = tmp_predicts
+            else:
+                final_predicts+= tmp_predicts
+
+        # if sample:
+        #     print('final_predicts: {}'.format(final_predicts))
+
+
+        prec = accuracy(final_predicts.data, target)[0]
+        total_top1.update(prec[0], input.size(0))
+
+        _, min_loss_idx = losses_detail.topk(1, 1, False, True)
+        _, max_pred_idx = pred.data.topk(1, 1, True, True)
+        gate_pred_correct += (min_loss_idx == max_pred_idx).sum()
+
+
+    for idx in range(model_num):
+        print('model {0}\t Test: Loss {loss.avg:.4f} ,Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
+
+    print('mixture of experts result: Prec {top1.avg:.3f}%'.format(top1=total_top1))
+    print('gate predict correct Test {}/{} {:.2f}%\n\n'.format(gate_pred_correct, len(val_loader.dataset),100. * gate_pred_correct / len(val_loader.dataset)))
+    return total_top1.avg
 
 def save_checkpoint(state, is_best, fdir):
     filepath = os.path.join(fdir, 'checkpoint.pth')
