@@ -32,6 +32,7 @@ parser.add_argument('--model-num', default='2', type=int, metavar='MN', help='th
 parser.add_argument('--gate-type', default='1', type=int, metavar='GT', help='the type of gate')
 
 best_prec = 0
+now_learning_rate = 0
 
 def main():
     global args, best_prec
@@ -288,30 +289,41 @@ def save_checkpoint(state, is_best, fdir):
 
 
 def adjust_learning_rate(optimizer, epoch, model_type):
-    """For resnet, the lr starts from 0.1, and is divided by 10 at 80 and 120 epochs"""
-    if model_type == 1:
-        if epoch < 80:
-            lr = args.lr
-        elif epoch < 120:
-            lr = args.lr * 0.1
-        else:
-            lr = args.lr * 0.01
-    elif model_type == 2:
-        if epoch < 60:
-            lr = args.lr
-        elif epoch < 120:
-            lr = args.lr * 0.2
-        elif epoch < 160:
-            lr = args.lr * 0.04
-        else:
-            lr = args.lr * 0.008
-    elif model_type == 3:
-        if epoch < 150:
-            lr = args.lr
-        elif epoch < 225:
-            lr = args.lr * 0.1
-        else:
-            lr = args.lr * 0.01
+    global now_learning_rate
+    if epoch < 60:
+        lr = args.lr
+    elif epoch < 120:
+        lr = args.lr * 0.1
+    elif epoch < 180:
+        lr = args.lr * 0.01
+    else:
+        lr = args.lr * 0.001
+
+    # """For resnet, the lr starts from 0.1, and is divided by 10 at 80 and 120 epochs"""
+    # if model_type == 1:
+    #     if epoch < 80:
+    #         lr = args.lr
+    #     elif epoch < 120:
+    #         lr = args.lr * 0.1
+    #     else:
+    #         lr = args.lr * 0.01
+    # elif model_type == 2:
+    #     if epoch < 60:
+    #         lr = args.lr
+    #     elif epoch < 120:
+    #         lr = args.lr * 0.2
+    #     elif epoch < 160:
+    #         lr = args.lr * 0.04
+    #     else:
+    #         lr = args.lr * 0.008
+    # elif model_type == 3:
+    #     if epoch < 150:
+    #         lr = args.lr
+    #     elif epoch < 225:
+    #         lr = args.lr * 0.1
+    #     else:
+    #         lr = args.lr * 0.01
+    now_learning_rate = lr
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
