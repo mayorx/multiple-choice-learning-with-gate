@@ -306,7 +306,6 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
             # losses[i].update(f_loss.mean().data[0], input.size(0))
 
         min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
-        experts_loss = min_loss_value.mean()
 
         gate_loss = criterion(pred_var, min_loss_idx[:, 0]).mean()
         _, max_pred_idx = pred_var.topk(1, 1, True, True)
@@ -316,12 +315,6 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
         gate_optimizer.zero_grad()
         gate_loss.backward()
         gate_optimizer.step()
-
-        # for i in range(model_num):
-        #     optimizers[i].zero_grad()
-        # experts_loss.backward()
-        # for i in range(model_num):
-        #     optimizers[i].step()
 
     for idx in range(model_num):
         print('model {0}\t Train: Loss {loss.avg:.4f} Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
