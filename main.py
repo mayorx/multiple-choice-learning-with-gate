@@ -164,9 +164,9 @@ def main():
             ]))
         testloader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False, num_workers=2)
 
-    if args.evaluate:
-        validate(testloader, model, criterion)
-        return
+    # if args.evaluate:
+    #     validate(testloader, model, criterion)
+    #     return
 
     print_important_args(args)
 
