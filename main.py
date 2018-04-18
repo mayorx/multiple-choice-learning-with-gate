@@ -251,7 +251,7 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         gate_loss = criterion(pred_var, min_loss_idx[:, 0]).mean()
         _, max_pred_idx = pred_var.topk(1, 1, True, True)
 
-        gate_pred_correct += (min_loss_idx == max_pred_idx).sum()
+        gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
 
         gate_optimizer.zero_grad()
         gate_loss.backward()
