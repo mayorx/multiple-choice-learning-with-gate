@@ -269,28 +269,27 @@ def validate(val_loader, models, criterion, num_classes):
         input_var = Variable(input, volatile=True)
         target_var = Variable(target, volatile=True)
 
-        losses_detail_var = Variable(torch.zeros([len(target_var), model_num])).cuda()
+        # losses_detail_var = Variable(torch.zeros([len(target_var), model_num])).cuda()
 
-        outputs = [None] * model_num
+        # outputs = [None] * model_num
         pred_output = Variable(torch.zeros([len(target_var), num_classes])).cuda()
 
         for idx in range(model_num):
             output = models[idx](input_var)
-            outputs[idx] = output
-
-            loss = criterion(output, target_var)
-            losses_detail_var[:, idx] = loss
-
+            # outputs[idx] = output
+            pred_output += F.softmax(output, dim=1)
+            # loss = criterion(output, target_var)
+            # losses_detail_var[:, idx] = loss
             prec = accuracy(output.data, target)[0]
             # losses[idx].update(loss.data[0], input.size(0))
             top1[idx].update(prec[0], input.size(0))
 
-        _, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
+        # _, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
+        # _, max_pred_idx = outputs_pred_out
+        # min_loss_idx = min_loss_idx[:, 0]
 
-        min_loss_idx = min_loss_idx[:, 0]
-
-        for j in range(len(min_loss_idx)):
-            pred_output[j, :] = outputs[min_loss_idx[j].data[0]][j, :]
+        # for j in range(len(min_loss_idx)):
+        #     pred_output[j, :] = outputs[min_loss_idx[j].data[0]][j, :]
 
         prec = accuracy(pred_output.data, target)[0]
         total_top1.update(prec[0], input.size(0))
