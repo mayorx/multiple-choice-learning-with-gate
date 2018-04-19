@@ -275,9 +275,10 @@ def validate(val_loader, models, criterion, num_classes):
         pred_output = Variable(torch.zeros([len(target_var), num_classes])).cuda()
 
         for idx in range(model_num):
-            output = models[idx](input_var)
+            output = F.softmax(models[idx](input_var), dim=1)
             # outputs[idx] = output
-            pred_output += F.softmax(output, dim=1)
+            # pred_output += F.softmax(output, dim=1)
+            pred_output = torch.max(pred_output, output)
             # loss = criterion(output, target_var)
             # losses_detail_var[:, idx] = loss
             prec = accuracy(output.data, target)[0]
