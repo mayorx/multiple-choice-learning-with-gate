@@ -450,6 +450,8 @@ def gate_factory(gate_type, model_num):
         return resnet32_cifar(num_classes=model_num) #regular output
     elif gate_type == 4:
         return GateNet(model_nums=model_num, sm=0) #regular output
+    elif gate_type == 5:
+        return wide_resnet_cifar(depth=26, width=10, num_classes=model_num)
     else:
         raise('gate type not found :{}'.format(gate_type))
 
