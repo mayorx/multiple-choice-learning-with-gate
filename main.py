@@ -62,11 +62,11 @@ def main():
         #model = densenet_BC_cifar(depth=190, k=40, num_classes=100)
 
         # mkdir a new folder to store the checkpoint and best model
-        # if not os.path.exists('result'):
-        #     os.makedirs('result')
-        # fdir = 'result/resnet20_cifar10'
-        # if not os.path.exists(fdir):
-        #     os.makedirs(fdir)
+        if not os.path.exists('result'):
+            os.makedirs('result')
+        fdir = 'result/dcl-gate-{}'.format('standard')
+        if not os.path.exists(fdir):
+            os.makedirs(fdir)
 
         # adjust the lr according to the model type
         # if isinstance(model, (ResNet_Cifar, PreAct_ResNet_Cifar)):
@@ -98,17 +98,20 @@ def main():
         print('Cuda is not available!')
         return
 
-    # if args.resume:
-    #     if os.path.isfile(args.resume):
-    #         print('=> loading checkpoint "{}"'.format(args.resume))
-    #         checkpoint = torch.load(args.resume)
-    #         args.start_epoch = checkpoint['epoch']
-    #         best_prec = checkpoint['best_prec']
-    #         model.load_state_dict(checkpoint['state_dict'])
-    #         optimizer.load_state_dict(checkpoint['optimizer'])
-    #         print("=> loaded checkpoint '{}' (epoch {})".format(args.resume, checkpoint['epoch']))
-    #     else:
-    #         print("=> no checkpoint found at '{}'".format(args.resume))
+    if args.resume:
+        if os.path.isfile(args.resume):
+            print('=> loading checkpoint "{}"'.format(args.resume))
+            checkpoint = torch.load(args.resume)
+            model_num = checkpoint['model_num']
+            args.start_epoch = checkpoint['epoch']
+            gate.load_state_dict(checkpoint['gate'])
+            gate_optimizer.load_state_dict(checkpoint['gate_optimizer'])
+            for i in range(model_num):
+                models[i].load_state_dict(checkpoint['model-{}'.format(i)])
+                optimizers[i].load_state_dict(checkpoint['optimizer-{}'.format(i)])
+            print("=> loaded checkpoint '{}' (epoch {})".format(args.resume, checkpoint['epoch']))
+        else:
+            print("=> no checkpoint found at '{}'".format(args.resume))
 
     # Data loading and preprocessing
     # CIFAR10
@@ -192,6 +195,8 @@ def main():
         # remember best precision and save checkpoint
         is_best = prec > best_prec
         best_prec = max(prec, best_prec)
+
+        save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir)
 
     print('finished. best_prec: {:.4f}'.format(best_prec))
 
@@ -356,6 +361,18 @@ def validate(val_loader, models, gate, criterion):
 #     if is_best:
 #         shutil.copyfile(filepath, os.path.join(fdir, 'model_best.pth.tar'))
 
+def save_checkpoint(epoch, model_num, models, optimizers, gate, gate_optimizer, fdir):
+    filepath = os.path.join(fdir, 'checkpoint.pth')
+    state = {
+        'epoch' : epoch + 1,
+        'model_num': model_num,
+        'gate': gate.state_dict(),
+        'gate_optimizer': gate_optimizer.state_dict(),
+    }
+    for i in range(model_num):
+        state['model-{}'.format(i)] = models[i].state_dict()
+        state['optimizer-{}'.format(i)] = optimizers[i].state_dict()
+    torch.save(state, filepath)
 
 def adjust_learning_rate(optimizer, epoch):
     global now_learning_rate
