@@ -65,7 +65,7 @@ def main():
         # mkdir a new folder to store the checkpoint and best model
         if not os.path.exists('result'):
             os.makedirs('result')
-        fdir = 'result/dcl-cifar-{}-{}'.format(args.cifar_type, args.name)
+        fdir = 'result/dcl-cifar-{}-mn-{}-gt-{}-{}'.format(args.cifar_type, args.model_num, args.gate_type, args.name)
         if not os.path.exists(fdir):
             os.makedirs(fdir)
 
