@@ -399,7 +399,7 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
         print('verbose result:')
         for i in range(num_classes):
             for j in range(model_num):
-                print('{prec:4.1f}%({correct:4.0f}/{total:4.0f}) '.format(prec=100. * correct_classes[j][i] / total_classes[i], correct=correct_classes[j][i], total=total_classes[i]), end='')
+                print('{prec:4.1f}%'.format(prec=100. * correct_classes[j][i] / total_classes[i]), end='')
             print('')
         print('')
     return total_top1.avg
