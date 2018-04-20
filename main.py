@@ -30,6 +30,7 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true', he
 parser.add_argument('-ct', '--cifar-type', default='10', type=int, metavar='CT', help='10 for cifar10,100 for cifar100 (default: 10)')
 parser.add_argument('--model-num', default='2', type=int, metavar='MN', help='the number of models')
 parser.add_argument('--gate-type', default='1', type=int, metavar='GT', help='the type of gate')
+parser.add_argument('--name', default='anonymous', type=str, metavar='NAME', help='the name of this run')
 
 best_prec = 0
 now_learning_rate = 0
@@ -64,7 +65,7 @@ def main():
         # mkdir a new folder to store the checkpoint and best model
         if not os.path.exists('result'):
             os.makedirs('result')
-        fdir = 'result/dcl-gate-{}'.format('standard')
+        fdir = 'result/dcl-cifar-{}-{}'.format(args.cifar_type, args.name)
         if not os.path.exists(fdir):
             os.makedirs(fdir)
 
@@ -444,7 +445,7 @@ def gate_factory(gate_type, model_num):
         raise('gate type not found :{}'.format(gate_type))
 
 def print_important_args(args):
-    print('momentum {momentum} weight-decay {wd} batch-size {bs} model-num {mn} gate-type {gt}'.format(momentum=args.momentum, wd=args.weight_decay, bs=args.batch_size, mn=args.model_num, gt=args.gate_type))
+    print('momentum {momentum} weight-decay {wd} batch-size {bs} model-num {mn} gate-type {gt} run-name {nm}'.format(momentum=args.momentum, wd=args.weight_decay, bs=args.batch_size, mn=args.model_num, gt=args.gate_type, nm=args.name))
 
 if __name__=='__main__':
     main()
