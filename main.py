@@ -363,6 +363,7 @@ def validate(val_loader, models, gate, criterion):
 #         shutil.copyfile(filepath, os.path.join(fdir, 'model_best.pth.tar'))
 
 def save_checkpoint(epoch, model_num, models, optimizers, gate, gate_optimizer, fdir):
+    print('save checkpoint ... epoch {}, fdir {}'.format(epoch, fdir))
     filepath = os.path.join(fdir, 'checkpoint.pth')
     state = {
         'epoch' : epoch + 1,
