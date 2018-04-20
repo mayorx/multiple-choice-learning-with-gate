@@ -82,7 +82,7 @@ def main():
         models = []
         optimizers = []
         for i in range(0, args.model_num):
-            model = resnet32_cifar(num_classes=100)
+            model = resnet32_cifar(num_classes=args.cifar_type)
             model = nn.DataParallel(model).cuda()
             optimizer = optim.SGD(model.parameters(), args.lr, momentum=args.momentum, weight_decay=args.weight_decay,
                                   nesterov=True)
