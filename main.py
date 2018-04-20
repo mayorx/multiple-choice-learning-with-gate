@@ -245,7 +245,7 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         for idx in range(model_num):
             outputs[idx] = models[idx](input_var)
 
-        pred = gate(input_var)
+        pred = F.softmax(gate(input_var),dim=1)
         loss = 0
 
         losses_detail = pred.data.clone()
