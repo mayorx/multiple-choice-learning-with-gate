@@ -169,7 +169,7 @@ def main():
         testloader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False, num_workers=2)
 
     if args.evaluate:
-        validate(testloader, models, gate, criterion)
+        validate(testloader, models, gate, criterion, args.cifar_type)
         return
 
     print_important_args(args)
@@ -184,7 +184,7 @@ def main():
         train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
 
         # evaluate on test set
-        prec = validate(testloader, models, gate, criterion)
+        prec = validate(testloader, models, gate, criterion, args.cifar_type)
 
         end_time = time.time()
         passed_time = end_time - start_time
@@ -326,7 +326,7 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
 
     print('gate predict correct Train {}/{} {:.2f}%\n\n'.format(gate_pred_correct, len(trainloader.dataset),100. * gate_pred_correct / len(trainloader.dataset)))
 
-def validate(val_loader, models, gate, criterion):
+def validate(val_loader, models, gate, criterion, num_classes):
     model_num = len(models)
 
     # switch to evaluate mode
