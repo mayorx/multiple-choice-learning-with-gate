@@ -431,11 +431,13 @@ def accuracy(output, target, topk=(1,)):
 
 def gate_factory(gate_type, model_num):
     if gate_type == 1:
-        return GateNet(model_num)
+        return GateNet(num_classes=model_num) #softmax as output
     elif gate_type == 2:
-        return gate_resnet(num_classes=model_num)
+        return gate_resnet(num_classes=model_num) #softmax as output
     elif gate_type == 3:
-        return
+        return resnet32_cifar(num_classes=model_num) #regular output
+    elif gate_type == 4:
+        return GateNet(model_nums=model_num, sm=0) #regular output
     else:
         raise('gate type not found :{}'.format(gate_type))
 
