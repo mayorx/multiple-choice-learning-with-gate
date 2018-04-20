@@ -101,8 +101,6 @@ def main():
             checkpoint = torch.load(args.resume)
             model_num = checkpoint['model_num']
             args.start_epoch = checkpoint['epoch']
-            gate.load_state_dict(checkpoint['gate'])
-            gate_optimizer.load_state_dict(checkpoint['gate_optimizer'])
             for i in range(model_num):
                 models[i].load_state_dict(checkpoint['model-{}'.format(i)])
                 optimizers[i].load_state_dict(checkpoint['optimizer-{}'.format(i)])
@@ -165,7 +163,7 @@ def main():
         testloader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False, num_workers=2)
 
     if args.evaluate:
-        validate(testloader, models, gate, criterion)
+        validate(testloader, models, criterion, args.cifar_type)
         return
 
     print_important_args(args)
@@ -192,7 +190,7 @@ def main():
         is_best = prec > best_prec
         best_prec = max(prec, best_prec)
 
-        save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir)
+        save_checkpoint(epoch, args.model_num, models, optimizers, fdir)
 
     print('finished. best_prec: {:.4f}'.format(best_prec))
 
@@ -313,13 +311,11 @@ def validate(val_loader, models, criterion, num_classes):
 #     if is_best:
 #         shutil.copyfile(filepath, os.path.join(fdir, 'model_best.pth.tar'))
 
-def save_checkpoint(epoch, model_num, models, optimizers, gate, gate_optimizer, fdir):
+def save_checkpoint(epoch, model_num, models, optimizers, fdir):
     filepath = os.path.join(fdir, 'checkpoint.pth')
     state = {
         'epoch' : epoch + 1,
         'model_num': model_num,
-        'gate': gate.state_dict(),
-        'gate_optimizer': gate_optimizer.state_dict(),
     }
     for i in range(model_num):
         state['model-{}'.format(i)] = models[i].state_dict()
@@ -396,7 +392,7 @@ def gate_factory(gate_type, model_num):
         raise('gate type not found :{}'.format(gate_type))
 
 def print_important_args(args):
-    print('momentum {momentum} weight-decay {wd} batch-size {bs} model-num {mn} gate-type {gt} run-name {nm}'.format(momentum=args.momentum, wd=args.weight_decay, bs=args.batch_size, mn=args.model_num, gt=args.gate_type, nm=args.name))
+    print('momentum {momentum} weight-decay {wd} batch-size {bs} model-num {mn} run-name {nm}'.format(momentum=args.momentum, wd=args.weight_decay, bs=args.batch_size, mn=args.model_num, nm=args.name))
 
 if __name__=='__main__':
     main()
