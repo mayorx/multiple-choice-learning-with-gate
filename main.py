@@ -170,7 +170,7 @@ def main():
         testloader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False, num_workers=2)
 
     if args.evaluate:
-        validate(testloader, models, gate, criterion, args.cifar_type)
+        validate(testloader, models, gate, criterion, args.cifar_type, verbose=True)
         return
 
     print_important_args(args)
@@ -205,7 +205,7 @@ def main():
         train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
 
         # evaluate on test set
-        prec = validate(testloader, models, gate, criterion)
+        prec = validate(testloader, models, gate, criterion, args.cifar_type)
 
         end_time = time.time()
         passed_time = end_time - start_time
@@ -327,7 +327,7 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
 
     print('gate predict correct Train {}/{} {:.2f}%\n\n'.format(gate_pred_correct, len(trainloader.dataset),100. * gate_pred_correct / len(trainloader.dataset)))
 
-def validate(val_loader, models, gate, criterion, num_classes):
+def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
     model_num = len(models)
 
     # switch to evaluate mode
@@ -344,10 +344,17 @@ def validate(val_loader, models, gate, criterion, num_classes):
     total_top1 = AverageMeter()
 
     gate_pred_correct = 0
+
+    correct_classes = torch.zeros(model_num, num_classes)
+    total_classes = torch.zeros(num_classes)
+
     for i, (input, target) in enumerate(val_loader):
         input, target = input.cuda(), target.cuda()
         input_var = Variable(input, volatile=True)
         target_var = Variable(target, volatile=True)
+        if verbose:
+            for t in target_var.data:
+                total_classes[t] += 1
 
         # compute output
         pred_var = F.softmax(gate(input_var), dim=1)
@@ -363,6 +370,10 @@ def validate(val_loader, models, gate, criterion, num_classes):
             prec = accuracy(output.data, target)[0]
             # losses[idx].update(loss.data[0], input.size(0))
             top1[idx].update(prec[0], input.size(0))
+            if verbose:
+                _, max_pred_idx = output.topk(1, 1, True, True)
+                for j in range(len(max_pred_idx)):
+                    correct_classes[idx][target[j]] += target[j] == max_pred_idx.data[j][0]
 
             tmp_predicts = F.softmax(output, dim=1) * pred_var[:, idx].contiguous().view(-1,1)
             if idx == 0:
@@ -383,6 +394,14 @@ def validate(val_loader, models, gate, criterion, num_classes):
 
     print('mixture of experts result: Prec {top1.avg:.3f}%'.format(top1=total_top1))
     print('gate predict correct Test {}/{} {:.2f}%\n\n'.format(gate_pred_correct, len(val_loader.dataset),100. * gate_pred_correct / len(val_loader.dataset)))
+
+    if verbose:
+        print('verbose result:')
+        for i in range(num_classes):
+            for j in range(model_num):
+                print('{prec:4.1f}%({correct:4.0f}/{total:4.0f}) '.format(prec=100. * correct_classes[j][i] / total_classes[i], correct=correct_classes[j][i], total=total_classes[i]), end='')
+            print('')
+        print('')
     return total_top1.avg
 
 # def save_checkpoint(state, is_best, fdir):
