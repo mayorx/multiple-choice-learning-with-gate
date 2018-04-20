@@ -327,6 +327,7 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
 
     print('gate predict correct Train {}/{} {:.2f}%\n\n'.format(gate_pred_correct, len(trainloader.dataset),100. * gate_pred_correct / len(trainloader.dataset)))
 
+#choose models by entropy
 def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
     model_num = len(models)
 
@@ -344,6 +345,7 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
     total_top1 = AverageMeter()
 
     gate_pred_correct = 0
+    entropy_pred_correct = 0
 
     correct_classes = torch.zeros(model_num, num_classes)
     total_classes = torch.zeros(num_classes)
@@ -359,10 +361,13 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
         # compute output
         pred_var = F.softmax(gate(input_var), dim=1)
         losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
+        entropy_var = Variable(torch.zeros(len(target), model_num)).cuda()
 
         final_predicts = None
+        outputs = [None] * model_num
         for idx in range(model_num):
             output = models[idx](input_var)
+            outputs[idx] = output
 
             loss = criterion(output, target_var)
             losses_detail_var[:, idx] = loss
@@ -374,12 +379,18 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
                 _, max_pred_idx = output.topk(1, 1, True, True)
                 for j in range(len(max_pred_idx)):
                     correct_classes[idx][target[j]] += target[j] == max_pred_idx.data[j][0]
+            pred_output = F.softmax(output, dim=1)
+            entropy_var[:, idx] = (torch.log(pred_output + 1e-9) * pred_output).sum(dim=1)
 
-            tmp_predicts = F.softmax(output, dim=1) * pred_var[:, idx].contiguous().view(-1,1)
+            tmp_predicts = pred_output * pred_var[:, idx].contiguous().view(-1,1)
             if idx == 0:
                 final_predicts = tmp_predicts
             else:
                 final_predicts+= tmp_predicts
+        _, min_entropy_idx = entropy_var.topk(1, 1, False, True)
+
+        for idx in range(len(target)):
+            final_predicts[idx] = outputs[min_entropy_idx[idx].data[0]][idx]
 
         prec = accuracy(final_predicts.data, target)[0]
         total_top1.update(prec[0], input.size(0))
@@ -387,13 +398,15 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
         _, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
         _, max_pred_idx = pred_var.topk(1, 1, True, True)
         gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
+        entropy_pred_correct += (min_entropy_idx.data == min_loss_idx.data).sum()
 
 
     for idx in range(model_num):
         print('model {0}\t Test: Loss {loss.avg:.4f} ,Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
 
     print('mixture of experts result: Prec {top1.avg:.3f}%'.format(top1=total_top1))
-    print('gate predict correct Test {}/{} {:.2f}%\n\n'.format(gate_pred_correct, len(val_loader.dataset),100. * gate_pred_correct / len(val_loader.dataset)))
+    print('gate predict correct Test {}/{} {:.2f}%'.format(gate_pred_correct, len(val_loader.dataset),100. * gate_pred_correct / len(val_loader.dataset)))
+    print('entropy predict correct {}/{} {:.2f}%\n'.format(entropy_pred_correct, len(val_loader.dataset), 100. * entropy_pred_correct / len(val_loader.dataset)))
 
     if verbose:
         print('verbose result:')
