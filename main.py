@@ -251,6 +251,7 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
     for idx in range(model_num):
         losses.append(AverageMeter())
         top1.append(AverageMeter())
+    lam = 1
 
     for ix, (input, target) in enumerate(trainloader):
         input, target = input.cuda(), target.cuda()
@@ -260,15 +261,19 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         pred_var = gate(input_var)
 
         losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
-
+        entropy_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
         for i in range(model_num):
             output = models[i](input_var)
             losses_detail_var[:, i] = criterion(output, target_var)
+            entropy_detail_var[:, i] = -torch.log(F.softmax(output, dim=1) + 1e-9).mean(dim=1)
             prec = accuracy(output.data, target)[0]
             top1[i].update(prec[0], input.size(0))
+        entropy_detail_var_lambda = lam * entropy_detail_var
+        entropy_sum_var = entropy_detail_var_lambda.sum(dim=1)
 
         min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
-        experts_loss = min_loss_value.mean()
+        choosed_expert_entropy = torch.gather(entropy_detail_var, 1, min_loss_idx)
+        experts_loss = min_loss_value.mean() + entropy_sum_var.mean() - choosed_expert_entropy.mean()
 
         _, max_pred_idx = pred_var.topk(1, 1, True, True)
 
