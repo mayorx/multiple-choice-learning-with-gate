@@ -226,7 +226,6 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
 
     for model in models:
         model.train()
-    gate.train()
 
     losses = []
     top1 = []
@@ -234,7 +233,6 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         losses.append(AverageMeter())
         top1.append(AverageMeter())
 
-    gate_pred_correct = 0
     for ix, (input, target) in enumerate(trainloader):
         input, target = input.cuda(), target.cuda()
         input_var = Variable(input)
@@ -245,38 +243,21 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         for idx in range(model_num):
             outputs[idx] = models[idx](input_var)
 
-        pred = F.softmax(gate(input_var),dim=1)
         loss = 0
-
-        losses_detail = pred.data.clone()
+        losses_detail = Variable(torch.zeros(len(target), model_num)).cuda()
 
         for i in range(model_num):
-            #f_loss = criterion(outputs[i], target_var) * pred[:, i].contiguous().view(-1, 1)
             f_loss = criterion(outputs[i], target_var)
-            # print('train f loss: {}'.format(f_loss))
-            # print('pred[:, {}] = {}'.format(i, pred[:, i]))
-            # print('mul : {}'.format(f_loss * pred[:, i]))
-            # print('mean: {}'.format((f_loss * pred[:, i]).mean()))
-
-            losses_detail[:, i] = f_loss.data
-            # print(f_loss)
-            # print(pred[:, i])
-            loss = loss + (f_loss * pred[:, i]).mean()
+            loss = loss + f_loss.mean()
             prec = accuracy(outputs[i].data, target)[0]
             top1[i].update(prec[0], input.size(0))
             losses[i].update(f_loss.mean().data[0], input.size(0))
 
         _, min_loss_idx = losses_detail.topk(1, 1, False, True)
-        _, max_pred_idx = pred.data.topk(1, 1, True, True)
-
-        gate_pred_correct += (min_loss_idx == max_pred_idx).sum()
-
 
         for i in range(model_num):
             optimizers[i].zero_grad()
-        gate_optimizer.zero_grad()
         loss.backward()
-        gate_optimizer.step()
         for i in range(model_num):
             optimizers[i].step()
 
@@ -284,15 +265,12 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         # print(losses[idx].avg)
         print('model {0}\t Train: Loss {loss.avg:.4f} Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
 
-    print('gate predict correct Train {}/{} {:.2f}%\n\n'.format(gate_pred_correct, len(trainloader.dataset),100. * gate_pred_correct / len(trainloader.dataset)))
-
 def validate(val_loader, models, gate, criterion):
     model_num = len(models)
 
     # switch to evaluate mode
     for model in models:
         model.eval()
-    gate.eval()
 
     losses = []
     top1 = []
@@ -303,20 +281,17 @@ def validate(val_loader, models, gate, criterion):
     total_top1 = AverageMeter()
 
 
-    gate_pred_correct = 0
     for i, (input, target) in enumerate(val_loader):
         input, target = input.cuda(), target.cuda()
         input_var = Variable(input, volatile=True)
         target_var = Variable(target, volatile=True)
 
         # compute output
-        pred = gate(input_var)
 
         sample = i % 100 == 0
         # if sample:
         #     print('pred: {}'.format(pred.data))
-        losses_detail = pred.data.clone()
-
+        losses_detail = Variable(torch.zeros(len(target), model_num)).cuda()
 
         final_predicts = None
         for idx in range(model_num):
@@ -327,11 +302,9 @@ def validate(val_loader, models, gate, criterion):
             prec = accuracy(output.data, target)[0]
             losses[idx].update(loss.data[0], input.size(0))
             top1[idx].update(prec[0], input.size(0))
-
-
             losses_detail[:, idx] = loss.data
 
-            tmp_predicts = F.softmax(output, dim=1) * pred[:, idx].contiguous().view(-1,1)
+            tmp_predicts = F.softmax(output, dim=1)
             if idx == 0:
                 final_predicts = tmp_predicts
             else:
@@ -345,15 +318,11 @@ def validate(val_loader, models, gate, criterion):
         total_top1.update(prec[0], input.size(0))
 
         _, min_loss_idx = losses_detail.topk(1, 1, False, True)
-        _, max_pred_idx = pred.data.topk(1, 1, True, True)
-        gate_pred_correct += (min_loss_idx == max_pred_idx).sum()
-
 
     for idx in range(model_num):
         print('model {0}\t Test: Loss {loss.avg:.4f} ,Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
 
     print('mixture of experts result: Prec {top1.avg:.3f}%'.format(top1=total_top1))
-    print('gate predict correct Test {}/{} {:.2f}%\n\n'.format(gate_pred_correct, len(val_loader.dataset),100. * gate_pred_correct / len(val_loader.dataset)))
     return total_top1.avg
 
 # def save_checkpoint(state, is_best, fdir):
