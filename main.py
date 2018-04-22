@@ -247,8 +247,7 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
             entropy_detail_var[:, i] = -torch.log(F.softmax(output, dim=1) + 1e-9).mean(dim=1)
             prec = accuracy(output.data, target)[0]
             top1[i].update(prec[0], input.size(0))
-        entropy_detail_var_lambda = lam * entropy_detail_var
-        entropy_sum_var = entropy_detail_var_lambda.sum(dim=1)
+        entropy_sum_var = entropy_detail_var.sum(dim=1)
 
         min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
         choosed_expert_entropy = torch.gather(entropy_detail_var, 1, min_loss_idx)
@@ -303,7 +302,6 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
         losses_detail_var = Variable(torch.zeros([len(target), model_num])).cuda()
         entropy_var = Variable(torch.zeros([len(target), model_num])).cuda()
 
-        final_predicts = None
         outputs = [None] * model_num
         for idx in range(model_num):
             output = models[idx](input_var)
@@ -322,13 +320,14 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
             pred_output = F.softmax(output, dim=1)
             entropy_var[:, idx] = -(torch.log(pred_output + 1e-9) * pred_output).sum(dim=1)
 
-            tmp_predicts = pred_output * pred_var[:, idx].contiguous().view(-1,1)
-            if idx == 0:
-                final_predicts = tmp_predicts
-            else:
-                final_predicts+= tmp_predicts
+            # tmp_predicts = pred_output * pred_var[:, idx].contiguous().view(-1,1)
+            # if idx == 0:
+            #     final_predicts = tmp_predicts
+            # else:
+            #     final_predicts+= tmp_predicts
         _, min_entropy_idx = entropy_var.topk(1, 1, False, True)
 
+        final_predicts = Variable(torch.zeros([len(target), num_classes])).cuda()
         for idx in range(len(target)):
             final_predicts[idx] = outputs[min_entropy_idx[idx].data[0]][idx]
 

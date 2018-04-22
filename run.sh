@@ -8,5 +8,5 @@
 
 #CUDA_VISIBLE_DEVICES=0 python main.py --epoch 200 --batch-size 64 --lr 0.1 --momentum 0.9 --wd 5e-4 -ct 100 --model-num 2 --gate-type 3 --name mcl-entropy-3 --resume result/dcl-gate-two-step-1/checkpoint.pth --evaluate
 
-CUDA_VISIBLE_DEVICES=0 python main.py --epoch 200 --batch-size 64 --lr 0.1 --momentum 0.9 --wd 5e-4 -ct 100 --model-num 5 --gate-type 3 --name unknown --resume result/dcl-cifar-100-mn-5-gt-3-mcl-twostep-5/checkpoint.pth
+CUDA_VISIBLE_DEVICES=0 python main.py --epoch 200 --batch-size 64 --lr 0.1 --momentum 0.9 --wd 5e-4 -ct 100 --model-num 5 --gate-type 3 --name mcl-entropy-secondstep-trai-2 --resume result/dcl-cifar-100-mn-5-gt-3-mcl-twostep-6/checkpoint.pth
 #CUDA_VISIBLE_DEVICES=0 python main.py --epoch 200 --batch-size 64 --lr 0.1 --momentum 0.9 --wd 5e-4 -ct 100 --model-num 5 --gate-type 3 --name mcl-entropy-4
