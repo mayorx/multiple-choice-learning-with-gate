@@ -260,8 +260,8 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
 
         pred_var = gate(input_var)
 
-        losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
-        entropy_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
+        losses_detail_var = Variable(torch.zeros([len(target), model_num])).cuda()
+        entropy_detail_var = Variable(torch.zeros([len(target), model_num])).cuda()
         for i in range(model_num):
             output = models[i](input_var)
             losses_detail_var[:, i] = criterion(output, target_var)
@@ -365,8 +365,8 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
 
         # compute output
         pred_var = F.softmax(gate(input_var), dim=1)
-        losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
-        entropy_var = Variable(torch.zeros(len(target), model_num)).cuda()
+        losses_detail_var = Variable(torch.zeros([len(target), model_num])).cuda()
+        entropy_var = Variable(torch.zeros([len(target), model_num])).cuda()
 
         final_predicts = None
         outputs = [None] * model_num
@@ -385,7 +385,7 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
                 for j in range(len(max_pred_idx)):
                     correct_classes[idx][target[j]] += target[j] == max_pred_idx.data[j][0]
             pred_output = F.softmax(output, dim=1)
-            entropy_var[:, idx] = (torch.log(pred_output + 1e-9) * pred_output).sum(dim=1)
+            entropy_var[:, idx] = -(torch.log(pred_output + 1e-9) * pred_output).sum(dim=1)
 
             tmp_predicts = pred_output * pred_var[:, idx].contiguous().view(-1,1)
             if idx == 0:
