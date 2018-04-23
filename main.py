@@ -306,6 +306,7 @@ def validate(val_loader, models, gate, criterion):
             top1[idx].update(prec[0], input.size(0))
 
             tmp_predicts = F.softmax(output, dim=1) * pred_var[:, idx].contiguous().view(-1,1)
+            tmp_predicts = F.softmax(output, dim=1)
             if idx == 0:
                 final_predicts = tmp_predicts
             else:
