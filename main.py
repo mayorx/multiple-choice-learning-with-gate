@@ -241,6 +241,7 @@ class AverageMeter(object):
 
 
 def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch):
+    accumulate_size = 5
     model_num = len(models)
 
     for model in models:
@@ -252,6 +253,7 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         losses.append(AverageMeter())
         top1.append(AverageMeter())
 
+    experts_loss = 0
     for ix, (input, target) in enumerate(trainloader):
         input, target = input.cuda(), target.cuda()
         input_var = Variable(input)
@@ -268,16 +270,15 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
             top1[i].update(prec[0], input.size(0))
 
         min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
-        experts_loss = min_loss_value.mean()
+        experts_loss = experts_loss + min_loss_value.mean()
 
-        _, max_pred_idx = pred_var.topk(1, 1, True, True)
-
-
-        for i in range(model_num):
-            optimizers[i].zero_grad()
-        experts_loss.backward()
-        for i in range(model_num):
-            optimizers[i].step()
+        if (ix+1) % accumulate_size == 0:
+            for i in range(model_num):
+                optimizers[i].zero_grad()
+            experts_loss.backward()
+            for i in range(model_num):
+                optimizers[i].step()
+            experts_loss = 0
 
     for idx in range(model_num):
         print('model {0}\t Train: Loss {loss.avg:.4f} Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
