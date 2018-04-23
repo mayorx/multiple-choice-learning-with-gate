@@ -231,7 +231,7 @@ def train(trainloader, criterion, models, optimizers, epoch):
         input_var = Variable(input)
         target_var = Variable(target)
 
-        losses_detail_var = Variable(torch.zeros([len(target_var), model_num])).cuda()
+        losses_detail_var = Variable(torch.zeros([input.size(0), model_num])).cuda()
 
         for i in range(model_num):
             output = models[i](input_var)
@@ -253,7 +253,7 @@ def train(trainloader, criterion, models, optimizers, epoch):
         print('model {0}\t Train: Loss {loss.avg:.4f} Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
 
 
-#@todo: using standard multiple-choice-learning, beleve the one with maximize confidence.
+#@todo: using standard multiple-choice-learning, believe the one with maximize confidence.
 def validate(val_loader, models, criterion, num_classes):
     model_num = len(models)
 
@@ -277,13 +277,13 @@ def validate(val_loader, models, criterion, num_classes):
         # losses_detail_var = Variable(torch.zeros([len(target_var), model_num])).cuda()
 
         # outputs = [None] * model_num
-        pred_output = Variable(torch.zeros([len(target_var), num_classes])).cuda()
-
+        # pred_output = Variable(torch.zeros([input.size(0), num_classes])).cuda()
+        pred_output = None
         for idx in range(model_num):
             output = F.softmax(models[idx](input_var), dim=1)
             # outputs[idx] = output
             # pred_output += F.softmax(output, dim=1)
-            pred_output = torch.max(pred_output, output)
+            pred_output = output if pred_output is None else torch.max(pred_output, output)
             # loss = criterion(output, target_var)
             # losses_detail_var[:, idx] = loss
             prec = accuracy(output.data, target)[0]
