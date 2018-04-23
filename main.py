@@ -176,6 +176,7 @@ def main():
     print_important_args(args)
 
     start_time = time.time()
+    args.start_epoch = 0
     for epoch in range(args.start_epoch, args.epochs):
         for opti in optimizers:
             adjust_learning_rate(opti, epoch)
