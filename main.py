@@ -106,8 +106,8 @@ def main():
             checkpoint = torch.load(args.resume)
             model_num = checkpoint['model_num']
             args.start_epoch = checkpoint['epoch']
-            gate.load_state_dict(checkpoint['gate'])
-            gate_optimizer.load_state_dict(checkpoint['gate_optimizer'])
+            # gate.load_state_dict(checkpoint['gate'])
+            # gate_optimizer.load_state_dict(checkpoint['gate_optimizer'])
             for i in range(model_num):
                 models[i].load_state_dict(checkpoint['model-{}'.format(i)])
                 optimizers[i].load_state_dict(checkpoint['optimizer-{}'.format(i)])
