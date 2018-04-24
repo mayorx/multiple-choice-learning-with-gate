@@ -246,39 +246,34 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
             outputs[idx] = models[idx](input_var)
 
         pred = F.softmax(gate(input_var),dim=1)
-        loss = 0
 
-        losses_detail = pred.data.clone()
+        losses_detail = Variable(torch.zeros([input.size(0), model_num])).cuda()
 
         for i in range(model_num):
-            #f_loss = criterion(outputs[i], target_var) * pred[:, i].contiguous().view(-1, 1)
             f_loss = criterion(outputs[i], target_var)
-            # print('train f loss: {}'.format(f_loss))
-            # print('pred[:, {}] = {}'.format(i, pred[:, i]))
-            # print('mul : {}'.format(f_loss * pred[:, i]))
-            # print('mean: {}'.format((f_loss * pred[:, i]).mean()))
-
-            losses_detail[:, i] = f_loss.data
-            # print(f_loss)
-            # print(pred[:, i])
-            loss = loss + (f_loss * pred[:, i]).mean()
+            losses_detail[:, i] = f_loss
             prec = accuracy(outputs[i].data, target)[0]
             top1[i].update(prec[0], input.size(0))
-            losses[i].update(f_loss.mean().data[0], input.size(0))
+            losses[i].update(f_loss.sum().data[0], input.size(0))
+        # print(pred.mul(losses_detail))
+        loss = (Variable(pred.data, requires_grad=False) * losses_detail).sum() / input.size(0)
 
         _, min_loss_idx = losses_detail.topk(1, 1, False, True)
-        _, max_pred_idx = pred.data.topk(1, 1, True, True)
+        _, max_pred_idx = pred.topk(1, 1, True, True)
 
-        gate_pred_correct += (min_loss_idx == max_pred_idx).sum()
+        gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
 
+        gate_loss = criterion(pred, min_loss_idx[:, 0]).mean()
 
         for i in range(model_num):
             optimizers[i].zero_grad()
-        gate_optimizer.zero_grad()
         loss.backward()
-        gate_optimizer.step()
         for i in range(model_num):
             optimizers[i].step()
+
+        gate_optimizer.zero_grad()
+        gate_loss.backward()
+        gate_optimizer.step()
 
     for idx in range(model_num):
         # print(losses[idx].avg)
