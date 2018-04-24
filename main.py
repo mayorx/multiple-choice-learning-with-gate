@@ -35,6 +35,7 @@ parser.add_argument('--name', default='anonymous', type=str, metavar='NAME', hel
 
 best_prec = 0
 now_learning_rate = 0
+epoch_factor = 3
 
 def main():
     global args, best_prec
@@ -176,9 +177,9 @@ def main():
     print_important_args(args)
 
     start_time = time.time()
-    for epoch in range(args.start_epoch, args.epochs):
+    for epoch in range(args.start_epoch, args.epochs * epoch_factor):
         for opti in optimizers:
-            adjust_learning_rate(opti, epoch)
+            adjust_learning_rate(opti, epoch, True)
 
         print('Epoch: Training Experts {0}\t LR = {lr:.4f}'.format(epoch, lr=now_learning_rate))
         # train for one epoch
@@ -189,7 +190,7 @@ def main():
 
         end_time = time.time()
         passed_time = end_time - start_time
-        estimated_extra_time = passed_time * (args.epochs - epoch) / (epoch - args.start_epoch + 1)
+        estimated_extra_time = passed_time * (args.epochs * epoch_factor - epoch) / (epoch - args.start_epoch + 1)
         print('time flies very fast .. {passed_time:.2f} mins passed, about {extra:.2f} mins left... step 1'.format(
             passed_time=passed_time / 60, extra=estimated_extra_time / 60))
 
@@ -424,13 +425,14 @@ def save_checkpoint(epoch, model_num, models, optimizers, gate, gate_optimizer, 
         state['optimizer-{}'.format(i)] = optimizers[i].state_dict()
     torch.save(state, filepath)
 
-def adjust_learning_rate(optimizer, epoch):
-    global now_learning_rate
-    if epoch < 60:
+def adjust_learning_rate(optimizer, epoch, isExpert = False):
+    global now_learning_rate, epoch_factor
+    factor = epoch_factor if isExpert else 1
+    if epoch < 60 * factor:
         lr = args.lr
-    elif epoch < 120:
+    elif epoch < 120 * factor:
         lr = args.lr * 0.1
-    elif epoch < 180:
+    elif epoch < 180 * factor:
         lr = args.lr * 0.01
     else:
         lr = args.lr * 0.001
