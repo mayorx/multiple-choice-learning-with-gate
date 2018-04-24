@@ -412,7 +412,7 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
 
 def save_checkpoint(epoch, model_num, models, optimizers, gate, gate_optimizer, fdir):
     print('save checkpoint ... epoch {}, fdir {}'.format(epoch, fdir))
-    filepath = os.path.join(fdir, 'checkpoint.pth')
+    filepath = os.path.join(fdir, 'checkpoint{}.pth'.format('-epoch-{}'.format(epoch) if epoch % 10 == 0 else ''))
     state = {
         'epoch' : epoch + 1,
         'model_num': model_num,
