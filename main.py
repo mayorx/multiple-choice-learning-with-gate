@@ -35,6 +35,7 @@ parser.add_argument('--name', default='anonymous', type=str, metavar='NAME', hel
 
 best_prec = 0
 now_learning_rate = 0
+ckpt_iter = 50
 
 def main():
     global args, best_prec
@@ -411,8 +412,9 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
 #         shutil.copyfile(filepath, os.path.join(fdir, 'model_best.pth.tar'))
 
 def save_checkpoint(epoch, model_num, models, optimizers, gate, gate_optimizer, fdir):
+    global ckpt_iter
     print('save checkpoint ... epoch {}, fdir {}'.format(epoch, fdir))
-    filepath = os.path.join(fdir, 'checkpoint{}.pth'.format('-epoch-{}'.format(epoch) if epoch % 10 == 0 else ''))
+    filepath = os.path.join(fdir, 'checkpoint{}.pth'.format('-epoch-{}'.format(epoch) if epoch % ckpt_iter == 0 else ''))
     state = {
         'epoch' : epoch + 1,
         'model_num': model_num,
