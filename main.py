@@ -314,7 +314,8 @@ def validate(val_loader, models, gate, criterion):
         target_var = Variable(target, volatile=True)
 
         # compute output
-        pred = gate(input_var)
+        pred_raw = gate(input_var)
+        pred = F.softmax(pred_raw, dim=1)
 
         sample = i % 100 == 0
         # if sample:
