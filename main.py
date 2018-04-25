@@ -253,6 +253,7 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         losses.append(AverageMeter())
         top1.append(AverageMeter())
 
+    cnt = [0, 0, 0, 0, 0]
     for ix, (input, target) in enumerate(trainloader):
         input, target = input.cuda(), target.cuda()
         input_var = Variable(input)
@@ -272,6 +273,13 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         experts_loss = min_loss_value.mean()
 
         _, max_pred_idx = pred_var.topk(1, 1, True, True)
+        # print(max_pred_idx)
+        if epoch % 10 == 0:
+            #bias of gate
+            for gate_pred_idx in max_pred_idx.data[:,0]:
+                cnt[gate_pred_idx] = cnt[gate_pred_idx]+1
+            if ix % 200 == 0:
+                print(cnt)
 
 
         for i in range(model_num):
@@ -411,9 +419,14 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
 #     if is_best:
 #         shutil.copyfile(filepath, os.path.join(fdir, 'model_best.pth.tar'))
 
-def save_checkpoint(epoch, model_num, models, optimizers, gate, gate_optimizer, fdir):
+def save_checkpoint(epoch, model_num, models, optimizers, gate, gate_optimizer, fdir, isGate=False):
     global ckpt_iter
     print('save checkpoint ... epoch {}, fdir {}'.format(epoch, fdir))
+    addition = ''
+    if epoch % ckpt_iter == 0:
+        addition = addition + '-epoch-{}'.format(epoch)
+        if isGate:
+            addition = addition + '-Gate'
     filepath = os.path.join(fdir, 'checkpoint{}.pth'.format('-epoch-{}'.format(epoch) if epoch % ckpt_iter == 0 else ''))
     state = {
         'epoch' : epoch + 1,
