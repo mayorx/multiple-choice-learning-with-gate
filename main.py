@@ -272,7 +272,7 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
                 cnt[gate_pred_idx] = cnt[gate_pred_idx]+1
             if ix % 200 == 0:
                 print(cnt)
-                # print('{}'.format(pred))
+                print('{}'.format(pred))
 
         for i in range(model_num):
             optimizers[i].zero_grad()
