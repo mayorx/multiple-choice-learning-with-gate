@@ -235,6 +235,7 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         top1.append(AverageMeter())
 
     gate_pred_correct = 0
+    cnt = [0, 0, 0, 0, 0]
     for ix, (input, target) in enumerate(trainloader):
         input, target = input.cuda(), target.cuda()
         input_var = Variable(input)
@@ -245,7 +246,8 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         for idx in range(model_num):
             outputs[idx] = models[idx](input_var)
 
-        pred = F.softmax(gate(input_var),dim=1)
+        pred_raw = gate(input_var)
+        pred = F.softmax(pred_raw, dim=1)
 
         losses_detail = Variable(torch.zeros([input.size(0), model_num])).cuda()
 
@@ -263,7 +265,14 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
 
         gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
 
-        gate_loss = criterion(pred, min_loss_idx[:, 0]).mean()
+        gate_loss = criterion(pred_raw, min_loss_idx[:, 0]).mean()
+        if epoch % 10 == 0:
+            #bias of gate
+            for gate_pred_idx in max_pred_idx.data[:,0]:
+                cnt[gate_pred_idx] = cnt[gate_pred_idx]+1
+            if ix % 200 == 0:
+                print(cnt)
+                # print('{}'.format(pred))
 
         for i in range(model_num):
             optimizers[i].zero_grad()
