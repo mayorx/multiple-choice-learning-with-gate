@@ -273,16 +273,18 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
             #     cnt[gate_pred_idx] = cnt[gate_pred_idx]+1
             if ix % 200 == 0:
                 # print(cnt)
-                print('{}'.format(pred))
+                print('epoch = {}, ix = {}, pred = {}'.format(epoch, ix, pred))
+
+        total_loss = loss + gate_loss
 
         for i in range(model_num):
             optimizers[i].zero_grad()
-        loss.backward()
+        gate_optimizer.zero_grad()
+        # gate_loss.backward()
+        # loss.backward()
+        total_loss.backward()
         for i in range(model_num):
             optimizers[i].step()
-
-        gate_optimizer.zero_grad()
-        gate_loss.backward()
         gate_optimizer.step()
 
     for idx in range(model_num):
