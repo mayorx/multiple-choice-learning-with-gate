@@ -176,66 +176,71 @@ def main():
 
     print_important_args(args)
 
-    start_time = time.time()
-    for epoch in range(args.start_epoch, args.epochs):
-        for opti in optimizers:
-            adjust_learning_rate(opti, epoch)
-
-        print('Epoch: Training Experts {0}\t LR = {lr:.4f}'.format(epoch, lr=now_learning_rate))
-        # train for one epoch
-        train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
-
-        # evaluate on test set
-        prec = validate(testloader, models, gate, criterion, args.cifar_type)
-
-        end_time = time.time()
-        passed_time = end_time - start_time
-        estimated_extra_time = passed_time * (args.epochs - epoch) / (epoch - args.start_epoch + 1)
-        print('time flies very fast .. {passed_time:.2f} mins passed, about {extra:.2f} mins left... step 1'.format(
-            passed_time=passed_time / 60, extra=estimated_extra_time / 60))
-
-        best_prec = max(prec, best_prec)
-        save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir)
+    BIGSTEP = 20
+    BIGEPOCH = args.epochs / BIGSTEP
 
     start_time = time.time()
-    for epoch in range(args.start_epoch, args.epochs):
-        adjust_learning_rate(gate_optimizer, epoch)
 
-        print('Epoch: Training Gate {0}\t LR = {lr:.4f}'.format(epoch, lr=now_learning_rate))
-        # train for one epoch
-        train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
+    for big_epoch in range(BIGEPOCH):
+        for step in range(BIGSTEP):
+            epoch = big_epoch * BIGSTEP + step
+            for opti in optimizers:
+                adjust_learning_rate(opti, epoch)
+            print('Epoch: Training Experts {0}\t LR = {lr:.4f}'.format(epoch, lr=now_learning_rate))
+            # train for one epoch
+            train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
 
-        # evaluate on test set
-        prec = validate(testloader, models, gate, criterion, args.cifar_type)
+            # evaluate on test set
+            prec = validate(testloader, models, gate, criterion, args.cifar_type)
 
-        end_time = time.time()
-        passed_time = end_time - start_time
-        estimated_extra_time = passed_time * (args.epochs - epoch) / (epoch - args.start_epoch + 1)
-        print('time flies very fast .. {passed_time:.2f} mins passed, about {extra:.2f} mins left... step 2'.format(
-            passed_time=passed_time / 60, extra=estimated_extra_time / 60))
+            end_time = time.time()
+            passed_time = end_time - start_time
+            estimated_extra_time = passed_time * (args.epochs - epoch) / (epoch - args.start_epoch + 1)
+            print('time flies very fast .. {passed_time:.2f} mins passed, about {extra:.2f} mins left... step 1'.format(
+                passed_time=passed_time / 60, extra=estimated_extra_time / 60))
 
-        # remember best precision and save checkpoint
-        is_best = prec > best_prec
-        best_prec = max(prec, best_prec)
-        save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir)
+            best_prec = max(prec, best_prec)
+            save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir)
 
-    start_time = time.time()
-    for epoch in range(args.start_epoch, args.epochs):
-        for opti in optimizers:
-            adjust_learning_rate(opti, epoch)
-        adjust_learning_rate(gate_optimizer, epoch)
-        print('Epoch: Training Union {0}\t LR = {lr:.4f}'.format(epoch, lr=now_learning_rate))
-        train_union(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
-        prec = validate(testloader, models, gate, criterion, args.cifar_type)
-        end_time = time.time()
-        passed_time = end_time - start_time
-        estimated_extra_time = passed_time * (args.epochs - epoch) / (epoch - args.start_epoch + 1)
-        print('time flies very fast .. {passed_time:.2f} mins passed, about {extra:.2f} mins left... step 1'.format(
-            passed_time=passed_time / 60, extra=estimated_extra_time / 60))
 
-        best_prec = max(prec, best_prec)
-        save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir, False, True)
+        for step in range(BIGSTEP):
+            epoch = big_epoch * BIGSTEP + step
+            adjust_learning_rate(gate_optimizer, epoch)
+            print('Epoch: Training Gate {0}\t LR = {lr:.4f}'.format(epoch, lr=now_learning_rate))
+            # train for one epoch
+            train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
 
+            # evaluate on test set
+            prec = validate(testloader, models, gate, criterion, args.cifar_type)
+
+            end_time = time.time()
+            passed_time = end_time - start_time
+            estimated_extra_time = passed_time * (args.epochs - epoch) / (epoch - args.start_epoch + 1)
+            print('time flies very fast .. {passed_time:.2f} mins passed, about {extra:.2f} mins left... step 2'.format(
+                passed_time=passed_time / 60, extra=estimated_extra_time / 60))
+
+            # remember best precision and save checkpoint
+            is_best = prec > best_prec
+            best_prec = max(prec, best_prec)
+            save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir)
+
+
+        for step in range(BIGSTEP):
+            epoch = big_epoch * BIGSTEP + step
+            for opti in optimizers:
+                adjust_learning_rate(opti, epoch)
+            adjust_learning_rate(gate_optimizer, epoch)
+            print('Epoch: Training Union {0}\t LR = {lr:.4f}'.format(epoch, lr=now_learning_rate))
+            train_union(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
+            prec = validate(testloader, models, gate, criterion, args.cifar_type)
+            end_time = time.time()
+            passed_time = end_time - start_time
+            estimated_extra_time = passed_time * (args.epochs - epoch) / (epoch - args.start_epoch + 1)
+            print('time flies very fast .. {passed_time:.2f} mins passed, about {extra:.2f} mins left... step 1'.format(
+                passed_time=passed_time / 60, extra=estimated_extra_time / 60))
+
+            best_prec = max(prec, best_prec)
+            save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir, False, True)
 
     print('finished. best_prec: {:.4f}'.format(best_prec))
 
