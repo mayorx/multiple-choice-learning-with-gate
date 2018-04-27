@@ -80,11 +80,13 @@ def main():
         # else:
         #     print('model type unrecognized...')
         #     return
-        gate = gate_factory(args.gate_type, args.model_num)
+        # gate = gate_factory(args.gate_type, args.model_num)
+        gate = resnet20_cifar(num_classes=args.model_num)
         models = []
         optimizers = []
         for i in range(0, args.model_num):
-            model = resnet32_cifar(num_classes=args.cifar_type)
+            # model = resnet32_cifar(num_classes=args.cifar_type)
+            model = resnet20_cifar(num_classes=args.cifar_type)
             model = nn.DataParallel(model).cuda()
             optimizer = optim.SGD(model.parameters(), args.lr, momentum=args.momentum, weight_decay=args.weight_decay,
                                   nesterov=True)
@@ -229,7 +231,8 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
     for idx in range(model_num):
         losses.append(AverageMeter())
         top1.append(AverageMeter())
-    lam = 1.0 / (model_num - 1)
+    # lam = 1.0 / (model_num - 1)
+    lam = 0.75
 
     for ix, (input, target) in enumerate(trainloader):
         input, target = input.cuda(), target.cuda()
@@ -377,14 +380,22 @@ def save_checkpoint(epoch, model_num, models, optimizers, gate, gate_optimizer, 
 
 def adjust_learning_rate(optimizer, epoch):
     global now_learning_rate
-    if epoch < 60:
+    # if epoch < 60:
+    #     lr = args.lr
+    # elif epoch < 120:
+    #     lr = args.lr * 0.1
+    # elif epoch < 180:
+    #     lr = args.lr * 0.01
+    # else:
+    #     lr = args.lr * 0.001
+    #
+
+    if epoch < 83:
         lr = args.lr
-    elif epoch < 120:
+    elif epoch < 124:
         lr = args.lr * 0.1
-    elif epoch < 180:
-        lr = args.lr * 0.01
     else:
-        lr = args.lr * 0.001
+        lr = args.lr * 0.01
 
     # """For resnet, the lr starts from 0.1, and is divided by 10 at 80 and 120 epochs"""
     # if model_type == 1:
