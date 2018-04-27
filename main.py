@@ -219,6 +219,7 @@ def main():
         best_prec = max(prec, best_prec)
         save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir)
 
+    start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
         for opti in optimizers:
             adjust_learning_rate(opti, epoch)
