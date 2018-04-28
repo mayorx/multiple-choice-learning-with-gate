@@ -348,7 +348,7 @@ def train_union(trainloader, criterion, models, optimizers, gate, gate_optimizer
             f_loss = criterion(outputs[i], target_var)
 
             losses_detail[:, i] = f_loss.data
-            loss = loss + (f_loss * pred[:, i]).mean()
+            loss = loss + (f_loss.detach() * pred[:, i]).mean()
             prec = accuracy(outputs[i].data, target)[0]
             top1[i].update(prec[0], input.size(0))
             losses[i].update(f_loss.mean().data[0], input.size(0))
