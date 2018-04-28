@@ -175,29 +175,73 @@ def main():
 
     print_important_args(args)
 
+    BIGSTEP = 20
+    BIGEPOCH = args.epochs / BIGSTEP
+
     start_time = time.time()
-    for epoch in range(args.start_epoch, args.epochs):
-        for opti in optimizers:
-            adjust_learning_rate(opti, epoch)
 
-        print('Epoch: Training Experts With Entropy {0}\t LR = {lr:.4f}'.format(epoch, lr=now_learning_rate))
-        # train for one epoch
-        train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
+    for big_epoch in range(BIGEPOCH):
+        for step in range(BIGSTEP):
+            epoch = big_epoch * BIGSTEP + step
+            for opti in optimizers:
+                adjust_learning_rate(opti, epoch)
+            print('Epoch: Training Experts With Entropy {0}\t LR = {lr:.4f}'.format(epoch, lr=now_learning_rate))
+            # train for one epoch
+            train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
 
-        # evaluate on test set
-        prec = validate(testloader, models, gate, criterion, args.cifar_type)
+            # evaluate on test set
+            prec = validate(testloader, models, gate, criterion, args.cifar_type)
 
-        end_time = time.time()
-        passed_time = end_time - start_time
-        estimated_extra_time = passed_time * (args.epochs - epoch) / (epoch - args.start_epoch + 1)
-        print('time flies very fast .. {passed_time:.2f} mins passed, about {extra:.2f} mins left... step 1'.format(
-            passed_time=passed_time / 60, extra=estimated_extra_time / 60))
+            end_time = time.time()
+            passed_time = end_time - start_time
+            estimated_extra_time = passed_time * (args.epochs - epoch) / (epoch - args.start_epoch + 1)
+            print('time flies very fast .. {passed_time:.2f} mins passed, about {extra:.2f} mins left... step 1'.format(
+                passed_time=passed_time / 60, extra=estimated_extra_time / 60))
 
-        best_prec = max(prec, best_prec)
-        save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir)
+            best_prec = max(prec, best_prec)
+            save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir)
+
+
+        for step in range(BIGSTEP):
+            epoch = big_epoch * BIGSTEP + step
+            adjust_learning_rate(gate_optimizer, epoch)
+            print('Epoch: Training Gate {0}\t LR = {lr:.4f}'.format(epoch, lr=now_learning_rate))
+            # train for one epoch
+            train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
+
+            # evaluate on test set
+            prec = validate(testloader, models, gate, criterion, args.cifar_type)
+
+            end_time = time.time()
+            passed_time = end_time - start_time
+            estimated_extra_time = passed_time * (args.epochs - epoch) / (epoch - args.start_epoch + 1)
+            print('time flies very fast .. {passed_time:.2f} mins passed, about {extra:.2f} mins left... step 2'.format(
+                passed_time=passed_time / 60, extra=estimated_extra_time / 60))
+
+            # remember best precision and save checkpoint
+            is_best = prec > best_prec
+            best_prec = max(prec, best_prec)
+            save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir)
+
+
+        for step in range(BIGSTEP):
+            epoch = big_epoch * BIGSTEP + step
+            for opti in optimizers:
+                adjust_learning_rate(opti, epoch)
+            adjust_learning_rate(gate_optimizer, epoch)
+            print('Epoch: Training Union {0}\t LR = {lr:.4f}'.format(epoch, lr=now_learning_rate))
+            train_union(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
+            prec = validate(testloader, models, gate, criterion, args.cifar_type)
+            end_time = time.time()
+            passed_time = end_time - start_time
+            estimated_extra_time = passed_time * (args.epochs - epoch) / (epoch - args.start_epoch + 1)
+            print('time flies very fast .. {passed_time:.2f} mins passed, about {extra:.2f} mins left... step 1'.format(
+                passed_time=passed_time / 60, extra=estimated_extra_time / 60))
+
+            best_prec = max(prec, best_prec)
+            save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir)
 
     print('finished. best_prec: {:.4f}'.format(best_prec))
-
 
 
 class AverageMeter(object):
@@ -229,14 +273,15 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
     for idx in range(model_num):
         losses.append(AverageMeter())
         top1.append(AverageMeter())
-    lam = 1.0 / (model_num - 1)
+    # lam = 1.0 / (model_num - 1)
+    lam = 0.75
 
     for ix, (input, target) in enumerate(trainloader):
         input, target = input.cuda(), target.cuda()
         input_var = Variable(input)
         target_var = Variable(target)
 
-        pred_var = gate(input_var)
+        # pred_var = gate(input_var)
 
         losses_detail_var = Variable(torch.zeros([len(target), model_num])).cuda()
         entropy_detail_var = Variable(torch.zeros([len(target), model_num])).cuda()
@@ -252,7 +297,7 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         choosed_expert_entropy = torch.gather(entropy_detail_var, 1, min_loss_idx)
         experts_loss = min_loss_value.mean() + lam * (entropy_sum_var.mean() - choosed_expert_entropy.mean())
 
-        _, max_pred_idx = pred_var.topk(1, 1, True, True)
+        # _, max_pred_idx = pred_var.topk(1, 1, True, True)
 
 
         for i in range(model_num):
@@ -263,6 +308,108 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
 
     for idx in range(model_num):
         print('model {0}\t Train: Loss {loss.avg:.4f} Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
+
+def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch):
+    model_num = len(models)
+
+    gate.train()
+
+    losses = []
+    top1 = []
+    for idx in range(model_num):
+        losses.append(AverageMeter())
+        top1.append(AverageMeter())
+
+    gate_pred_correct = 0
+    for ix, (input, target) in enumerate(trainloader):
+        input, target = input.cuda(), target.cuda()
+        input_var = Variable(input)
+        target_var = Variable(target)
+
+        pred_var = gate(input_var)
+
+        losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
+
+        for i in range(model_num):
+            output = models[i](input_var)
+            losses_detail_var[:, i] = criterion(output, target_var)
+            prec = accuracy(output.data, target)[0]
+            top1[i].update(prec[0], input.size(0))
+            # losses[i].update(f_loss.mean().data[0], input.size(0))
+
+        min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
+
+        gate_loss = criterion(pred_var, min_loss_idx[:, 0]).mean()
+        _, max_pred_idx = pred_var.topk(1, 1, True, True)
+
+        gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
+
+        gate_optimizer.zero_grad()
+        gate_loss.backward()
+        gate_optimizer.step()
+
+    for idx in range(model_num):
+        print('model {0}\t Train: Loss {loss.avg:.4f} Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
+
+    print('gate predict correct Train {}/{} {:.2f}%\n\n'.format(gate_pred_correct, len(trainloader.dataset),100. * gate_pred_correct / len(trainloader.dataset)))
+
+def train_union(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch):
+    model_num = len(models)
+
+    for model in models:
+        model.train()
+    gate.train()
+
+    losses = []
+    top1 = []
+    for idx in range(model_num):
+        losses.append(AverageMeter())
+        top1.append(AverageMeter())
+
+    gate_pred_correct = 0
+    for ix, (input, target) in enumerate(trainloader):
+        input, target = input.cuda(), target.cuda()
+        input_var = Variable(input)
+        target_var = Variable(target)
+
+        # compute output
+        outputs = [None] * model_num
+        for idx in range(model_num):
+            outputs[idx] = models[idx](input_var)
+
+        pred = F.softmax(gate(input_var),dim=1)
+        loss = 0
+
+        losses_detail = torch.zeros([input.size(0), model_num]).cuda()
+
+        for i in range(model_num):
+            #f_loss = criterion(outputs[i], target_var) * pred[:, i].contiguous().view(-1, 1)
+            f_loss = criterion(outputs[i], target_var)
+
+            losses_detail[:, i] = f_loss.data
+            loss = loss + (f_loss.detach() * pred[:, i]).mean()
+            prec = accuracy(outputs[i].data, target)[0]
+            top1[i].update(prec[0], input.size(0))
+            losses[i].update(f_loss.mean().data[0], input.size(0))
+
+        _, min_loss_idx = losses_detail.topk(1, 1, False, True)
+        _, max_pred_idx = pred.data.topk(1, 1, True, True)
+
+        gate_pred_correct += (min_loss_idx == max_pred_idx).sum()
+
+        # for i in range(model_num):
+        #     optimizers[i].zero_grad()
+        gate_optimizer.zero_grad()
+        loss.backward()
+        gate_optimizer.step()
+        # for i in range(model_num):
+        #     optimizers[i].step()
+
+    for idx in range(model_num):
+        # print(losses[idx].avg)
+        print('model {0}\t Train: Loss {loss.avg:.4f} Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
+
+    print('gate predict correct Train {}/{} {:.2f}%\n\n'.format(gate_pred_correct, len(trainloader.dataset),100. * gate_pred_correct / len(trainloader.dataset)))
 
 
 #choose models by entropy
