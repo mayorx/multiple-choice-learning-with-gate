@@ -297,12 +297,12 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
 
         _, max_pred_idx = pred_var.topk(1, 1, True, True)
         # print(max_pred_idx)
-        if epoch % 10 == 0:
+        # if epoch % 10 == 0:
             #bias of gate
-            for gate_pred_idx in max_pred_idx.data[:,0]:
-                cnt[gate_pred_idx] = cnt[gate_pred_idx]+1
-            if ix % 200 == 0:
-                print(cnt)
+            # for gate_pred_idx in max_pred_idx.data[:,0]:
+            #     cnt[gate_pred_idx] = cnt[gate_pred_idx]+1
+            # if ix % 200 == 0:
+            #     print(cnt)
 
 
         for i in range(model_num):
@@ -358,13 +358,13 @@ def train_union(trainloader, criterion, models, optimizers, gate, gate_optimizer
 
         gate_pred_correct += (min_loss_idx == max_pred_idx).sum()
 
-        for i in range(model_num):
-            optimizers[i].zero_grad()
+        # for i in range(model_num):
+        #     optimizers[i].zero_grad()
         gate_optimizer.zero_grad()
         loss.backward()
         gate_optimizer.step()
-        for i in range(model_num):
-            optimizers[i].step()
+        # for i in range(model_num):
+        #     optimizers[i].step()
 
     for idx in range(model_num):
         # print(losses[idx].avg)
