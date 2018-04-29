@@ -253,15 +253,12 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         losses.append(AverageMeter())
         top1.append(AverageMeter())
 
-    cnt = [0, 0, 0, 0, 0]
     for ix, (input, target) in enumerate(trainloader):
         input, target = input.cuda(), target.cuda()
         input_var = Variable(input)
         target_var = Variable(target)
 
-        pred_var = gate(input_var)
-
-        losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
+        losses_detail_var = Variable(torch.zeros([input.size(0), model_num])).cuda()
 
         for i in range(model_num):
             output = models[i](input_var)
@@ -269,18 +266,9 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
             prec = accuracy(output.data, target)[0]
             top1[i].update(prec[0], input.size(0))
 
-        min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
-        experts_loss = min_loss_value.mean()
+        model_selected = target_var / 20
 
-        _, max_pred_idx = pred_var.topk(1, 1, True, True)
-        # print(max_pred_idx)
-        if epoch % 10 == 0:
-            #bias of gate
-            for gate_pred_idx in max_pred_idx.data[:,0]:
-                cnt[gate_pred_idx] = cnt[gate_pred_idx]+1
-            if ix % 200 == 0:
-                print(cnt)
-
+        experts_loss = torch.gather(losses_detail_var, dim=1, index=model_selected.view(-1, 1)).mean()
 
         for i in range(model_num):
             optimizers[i].zero_grad()
@@ -311,21 +299,9 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
 
         pred_var = gate(input_var)
 
-        losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
+        model_selected = target_var / 20
 
-        for i in range(model_num):
-            output = models[i](input_var)
-            losses_detail_var[:, i] = criterion(output, target_var)
-            prec = accuracy(output.data, target)[0]
-            top1[i].update(prec[0], input.size(0))
-            # losses[i].update(f_loss.mean().data[0], input.size(0))
-
-        min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
-
-        gate_loss = criterion(pred_var, min_loss_idx[:, 0]).mean()
-        _, max_pred_idx = pred_var.topk(1, 1, True, True)
-
-        gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
+        gate_loss = criterion(pred_var, model_selected).mean()
 
         gate_optimizer.zero_grad()
         gate_loss.backward()
@@ -366,10 +342,13 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
                 total_classes[t] += 1
 
         # compute output
-        pred_var = F.softmax(gate(input_var), dim=1)
-        losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
+        pred_var = gate(input_var)
+        _, max_pred_idx = pred_var.topk(1, 1, True, True) #max_pred_idx: using
 
-        final_predicts = None
+        losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
+        pred_label_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
+        model_selected = target_var / 20
+
         for idx in range(model_num):
             output = models[idx](input_var)
 
@@ -381,21 +360,22 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
             top1[idx].update(prec[0], input.size(0))
             if verbose:
                 _, max_pred_idx = output.topk(1, 1, True, True)
-                for j in range(len(max_pred_idx)):
+                for j in range(input.size(0)):
                     correct_classes[idx][target[j]] += target[j] == max_pred_idx.data[j][0]
 
-            tmp_predicts = F.softmax(output, dim=1) * pred_var[:, idx].contiguous().view(-1,1)
-            if idx == 0:
-                final_predicts = tmp_predicts
-            else:
-                final_predicts+= tmp_predicts
+            _, pred_labels = output.topk(1, 1, True, True)
+            pred_label_detail_var[:, idx] = pred_labels
 
-        prec = accuracy(final_predicts.data, target)[0]
-        total_top1.update(prec[0], input.size(0))
+            # tmp_predicts = F.softmax(output, dim=1) * pred_var[:, idx].contiguous().view(-1,1)
+            # if idx == 0:
+            #     final_predicts = tmp_predicts
+            # else:
+            #     final_predicts+= tmp_predicts
+        final_pred_label = torch.gather(pred_label_detail_var, dim=1, index=max_pred_idx)
 
-        _, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
-        _, max_pred_idx = pred_var.topk(1, 1, True, True)
-        gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
+        total_top1.update((final_pred_label.long().data[:, 0] == target_var.data).sum(), input.size(0))
+
+        gate_pred_correct += (model_selected.view(-1,1).data == max_pred_idx.data).sum()
 
 
     for idx in range(model_num):
