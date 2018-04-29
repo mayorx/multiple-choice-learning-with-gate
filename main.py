@@ -35,6 +35,7 @@ parser.add_argument('--name', default='anonymous', type=str, metavar='NAME', hel
 
 best_prec = 0
 now_learning_rate = 0
+ckpt_iter = 30
 factor = 2
 BIGSTEP = 60
 
