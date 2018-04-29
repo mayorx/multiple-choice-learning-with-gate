@@ -222,7 +222,7 @@ def main():
             # remember best precision and save checkpoint
             is_best = prec > best_prec
             best_prec = max(prec, best_prec)
-            save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir)
+            save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir, True, False)
 
 
         for step in range(BIGSTEP):
@@ -240,7 +240,7 @@ def main():
                 passed_time=passed_time / 60, extra=estimated_extra_time / 60))
 
             best_prec = max(prec, best_prec)
-            save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir)
+            save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir, False, True)
 
     print('finished. best_prec: {:.4f}'.format(best_prec))
 
@@ -509,9 +509,17 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
 #     if is_best:
 #         shutil.copyfile(filepath, os.path.join(fdir, 'model_best.pth.tar'))
 
-def save_checkpoint(epoch, model_num, models, optimizers, gate, gate_optimizer, fdir):
+def save_checkpoint(epoch, model_num, models, optimizers, gate, gate_optimizer, fdir, isGate=False, isUnion=False):
+    global ckpt_iter
     print('save checkpoint ... epoch {}, fdir {}'.format(epoch, fdir))
-    filepath = os.path.join(fdir, 'checkpoint.pth')
+    addition = ''
+    if (epoch+1) % ckpt_iter == 0:
+        addition = addition + '-epoch-{}'.format(epoch)
+        if isGate:
+            addition = addition + '-Gate'
+        if isUnion:
+            addition = addition + '-Union'
+    filepath = os.path.join(fdir, 'checkpoint{}.pth'.format(addition))
     state = {
         'epoch' : epoch + 1,
         'model_num': model_num,
