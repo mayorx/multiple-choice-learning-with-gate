@@ -35,7 +35,8 @@ parser.add_argument('--name', default='anonymous', type=str, metavar='NAME', hel
 
 best_prec = 0
 now_learning_rate = 0
-ckpt_iter = 50
+ckpt_iter = 30
+BIGSTEP = 20
 
 def main():
     global args, best_prec
@@ -176,7 +177,6 @@ def main():
 
     print_important_args(args)
 
-    BIGSTEP = 20
     BIGEPOCH = args.epochs / BIGSTEP
 
     start_time = time.time()
@@ -222,7 +222,7 @@ def main():
             # remember best precision and save checkpoint
             is_best = prec > best_prec
             best_prec = max(prec, best_prec)
-            save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir)
+            save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir, True)
 
 
         for step in range(BIGSTEP):
@@ -317,8 +317,8 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
 def train_union(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch):
     model_num = len(models)
 
-    for model in models:
-        model.train()
+    # for model in models:
+    #     model.train()
     gate.train()
 
     losses = []
@@ -504,13 +504,13 @@ def save_checkpoint(epoch, model_num, models, optimizers, gate, gate_optimizer, 
     global ckpt_iter
     print('save checkpoint ... epoch {}, fdir {}'.format(epoch, fdir))
     addition = ''
-    if epoch % ckpt_iter == 0:
+    if (epoch+1) % ckpt_iter == 0:
         addition = addition + '-epoch-{}'.format(epoch)
         if isGate:
             addition = addition + '-Gate'
         if isUnion:
             addition = addition + '-Union'
-    filepath = os.path.join(fdir, 'checkpoint{}.pth'.format('-epoch-{}'.format(epoch) if epoch % ckpt_iter == 0 else ''))
+    filepath = os.path.join(fdir, 'checkpoint{}.pth'.format(addition))
     state = {
         'epoch' : epoch + 1,
         'model_num': model_num,
