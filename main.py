@@ -359,9 +359,9 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
             # losses[idx].update(loss.data[0], input.size(0))
             top1[idx].update(prec[0], input.size(0))
             if verbose:
-                _, max_pred_idx = output.topk(1, 1, True, True)
+                _, max_pred_idx_bak = output.topk(1, 1, True, True)
                 for j in range(input.size(0)):
-                    correct_classes[idx][target[j]] += target[j] == max_pred_idx.data[j][0]
+                    correct_classes[idx][target[j]] += target[j] == max_pred_idx_bak.data[j][0]
 
             _, pred_labels = output.topk(1, 1, True, True)
             pred_label_detail_var[:, idx] = pred_labels
