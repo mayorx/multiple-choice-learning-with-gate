@@ -35,6 +35,8 @@ parser.add_argument('--name', default='anonymous', type=str, metavar='NAME', hel
 
 best_prec = 0
 now_learning_rate = 0
+factor = 2
+BIGSTEP = 60
 
 def main():
     global args, best_prec
@@ -175,7 +177,6 @@ def main():
 
     print_important_args(args)
 
-    BIGSTEP = 20
     BIGEPOCH = args.epochs / BIGSTEP
 
     start_time = time.time()
@@ -356,8 +357,8 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
 def train_union(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch):
     model_num = len(models)
 
-    for model in models:
-        model.train()
+    # for model in models:
+    #     model.train()
     gate.train()
 
     losses = []
@@ -523,12 +524,12 @@ def save_checkpoint(epoch, model_num, models, optimizers, gate, gate_optimizer, 
     torch.save(state, filepath)
 
 def adjust_learning_rate(optimizer, epoch):
-    global now_learning_rate
-    if epoch < 60:
+    global now_learning_rate,factor
+    if epoch < 60 * factor:
         lr = args.lr
-    elif epoch < 120:
+    elif epoch < 120 * factor:
         lr = args.lr * 0.1
-    elif epoch < 180:
+    elif epoch < 180 * factor:
         lr = args.lr * 0.01
     else:
         lr = args.lr * 0.001
