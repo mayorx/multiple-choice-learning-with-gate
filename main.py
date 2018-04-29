@@ -35,7 +35,7 @@ parser.add_argument('--name', default='anonymous', type=str, metavar='NAME', hel
 
 best_prec = 0
 now_learning_rate = 0
-ckpt_iter = 50
+ckpt_iter = 30
 
 def main():
     global args, best_prec
@@ -403,11 +403,11 @@ def save_checkpoint(epoch, model_num, models, optimizers, gate, gate_optimizer, 
     global ckpt_iter
     print('save checkpoint ... epoch {}, fdir {}'.format(epoch, fdir))
     addition = ''
-    if epoch % ckpt_iter == 0:
+    if (epoch+1) % ckpt_iter == 0:
         addition = addition + '-epoch-{}'.format(epoch)
         if isGate:
             addition = addition + '-Gate'
-    filepath = os.path.join(fdir, 'checkpoint{}.pth'.format('-epoch-{}'.format(epoch) if epoch % ckpt_iter == 0 else ''))
+    filepath = os.path.join(fdir, 'checkpoint{}.pth'.format(addition))
     state = {
         'epoch' : epoch + 1,
         'model_num': model_num,
