@@ -313,19 +313,26 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
 
         losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
 
+        models_pred = []
         for i in range(model_num):
             output = models[i](input_var)
+            output_sigmoid = F.sigmoid(output)
+            models_pred.append(output_sigmoid.max(dim=1)[0].unsqueeze(1))
             losses_detail_var[:, i] = criterion(output, target_var)
             prec = accuracy(output.data, target)[0]
             top1[i].update(prec[0], input.size(0))
             # losses[i].update(f_loss.mean().data[0], input.size(0))
+
+        models_pred = torch.cat(models_pred, dim=1)
+        _, max_confident_idx = models_pred.topk(4, 1, True, True)
 
         min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
 
         gate_loss = 0
         for i in range(model_num):
             output_sigmoid = F.sigmoid(models[i](input_var))
-            gate_loss = gate_loss + F.binary_cross_entropy(torch.gather(output_sigmoid, dim=1, index=target_var.view(-1, 1)), (min_loss_idx == i).float())
+            weight = ((max_confident_idx == i).sum(dim=1)>0).float().data
+            gate_loss = gate_loss + F.binary_cross_entropy(torch.gather(output_sigmoid, dim=1, index=target_var.view(-1, 1)), (min_loss_idx == i).float(), weight.view(-1,1))
 
         _, max_pred_idx = pred_var.topk(1, 1, True, True)
 
