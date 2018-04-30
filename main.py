@@ -327,6 +327,7 @@ def train_union(trainloader, criterion, models, optimizers, gate, gate_optimizer
     for idx in range(model_num):
         losses.append(AverageMeter())
         top1.append(AverageMeter())
+    gate_update_wrong = AverageMeter()
 
     gate_pred_correct = 0
     for ix, (input, target) in enumerate(trainloader):
@@ -359,19 +360,29 @@ def train_union(trainloader, criterion, models, optimizers, gate, gate_optimizer
 
         gate_pred_correct += (min_loss_idx == max_pred_idx).sum()
 
-        # for i in range(model_num):
-        #     optimizers[i].zero_grad()
+        # print(loss)
+        # print(torch.mul(losses_detail, pred.data))
+        # print(torch.mul(losses_detail, pred.data).sum(dim=1))
+        # print(losses_detail)
+
+        need_bigger = losses_detail < torch.mul(losses_detail, pred.data).sum(dim=1).view(-1, 1)
+
         gate_optimizer.zero_grad()
         loss.backward()
         gate_optimizer.step()
-        # for i in range(model_num):
-        #     optimizers[i].step()
+
+        pred_new = F.softmax(gate(input_var), dim=1)
+
+        real_bigger = pred_new.data > pred.data
+
+        gate_update_wrong.update((real_bigger != need_bigger).sum(), input.size(0))
 
     for idx in range(model_num):
         # print(losses[idx].avg)
         print('model {0}\t Train: Loss {loss.avg:.4f} Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
 
     print('gate predict correct Train {}/{} {:.2f}%\n\n'.format(gate_pred_correct, len(trainloader.dataset),100. * gate_pred_correct / len(trainloader.dataset)))
+    print('real_bigger != need_bigger {gate_wrong.avg:.3f}'.format(gate_wrong=gate_update_wrong))
 
 
 def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch):
@@ -408,7 +419,6 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
         _, max_pred_idx = pred_var.topk(1, 1, True, True)
 
         gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
-
         gate_optimizer.zero_grad()
         gate_loss.backward()
         gate_optimizer.step()
