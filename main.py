@@ -332,7 +332,8 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
         for i in range(model_num):
             output_sigmoid = F.sigmoid(models[i](input_var))
             weight = ((max_confident_idx == i).sum(dim=1)>0).float().data
-            gate_loss = gate_loss + F.binary_cross_entropy(torch.gather(output_sigmoid, dim=1, index=target_var.view(-1, 1)), (min_loss_idx == i).float(), weight.view(-1,1))
+            gate_loss = gate_loss + F.binary_cross_entropy(F.softmax(pred_var, dim=1)[:, i].unsqueeze(1), (min_loss_idx == i).float(), weight.view(-1,1))
+            # gate_loss = gate_loss + F.binary_cross_entropy(torch.gather(output_sigmoid, dim=1, index=target_var.view(-1, 1)), (min_loss_idx == i).float(), weight.view(-1,1))
 
         _, max_pred_idx = pred_var.topk(1, 1, True, True)
 
