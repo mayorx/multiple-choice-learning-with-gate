@@ -310,6 +310,7 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
         target_var = Variable(target)
 
         pred_var = gate(input_var)
+        softmax_pred_var = F.softmax(pred_var, dim=1)
 
         losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
 
@@ -321,6 +322,9 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
             # losses[i].update(f_loss.mean().data[0], input.size(0))
 
         min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
+        if ix % 300 == 0 and epoch % 10 == 0:
+            print(pred_var)
+            print(softmax_pred_var)
 
         gate_loss = 0
         for i in range(model_num):
@@ -432,7 +436,7 @@ def save_checkpoint(epoch, model_num, models, optimizers, gate, gate_optimizer, 
         addition = addition + '-epoch-{}'.format(epoch)
         if isGate:
             addition = addition + '-Gate'
-    filepath = os.path.join(fdir, 'checkpoint{}.pth'.format('-epoch-{}'.format(epoch) if epoch % ckpt_iter == 0 else ''))
+    filepath = os.path.join(fdir, 'checkpoint{}.pth'.format(addition))
     state = {
         'epoch' : epoch + 1,
         'model_num': model_num,
