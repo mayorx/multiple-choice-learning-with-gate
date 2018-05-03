@@ -198,6 +198,7 @@ def main():
     #     save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir)
 
     start_time = time.time()
+    args.start_epoch = 0
     for epoch in range(args.start_epoch, args.epochs):
         adjust_learning_rate(gate_optimizer, epoch)
 
