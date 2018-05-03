@@ -107,8 +107,8 @@ def main():
             checkpoint = torch.load(args.resume)
             model_num = checkpoint['model_num']
             args.start_epoch = checkpoint['epoch']
-            gate.load_state_dict(checkpoint['gate'])
-            gate_optimizer.load_state_dict(checkpoint['gate_optimizer'])
+            # gate.load_state_dict(checkpoint['gate'])
+            # gate_optimizer.load_state_dict(checkpoint['gate_optimizer'])
             for i in range(model_num):
                 models[i].load_state_dict(checkpoint['model-{}'.format(i)])
                 optimizers[i].load_state_dict(checkpoint['optimizer-{}'.format(i)])
@@ -176,26 +176,26 @@ def main():
 
     print_important_args(args)
 
-    start_time = time.time()
-    for epoch in range(args.start_epoch, args.epochs):
-        for opti in optimizers:
-            adjust_learning_rate(opti, epoch)
-
-        print('Epoch: Training Experts {0}\t LR = {lr:.4f}'.format(epoch, lr=now_learning_rate))
-        # train for one epoch
-        train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
-
-        # evaluate on test set
-        prec = validate(testloader, models, gate, criterion, args.cifar_type)
-
-        end_time = time.time()
-        passed_time = end_time - start_time
-        estimated_extra_time = passed_time * (args.epochs - epoch) / (epoch - args.start_epoch + 1)
-        print('time flies very fast .. {passed_time:.2f} mins passed, about {extra:.2f} mins left... step 1'.format(
-            passed_time=passed_time / 60, extra=estimated_extra_time / 60))
-
-        best_prec = max(prec, best_prec)
-        save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir)
+    # start_time = time.time()
+    # for epoch in range(args.start_epoch, args.epochs):
+    #     for opti in optimizers:
+    #         adjust_learning_rate(opti, epoch)
+    #
+    #     print('Epoch: Training Experts {0}\t LR = {lr:.4f}'.format(epoch, lr=now_learning_rate))
+    #     # train for one epoch
+    #     train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
+    #
+    #     # evaluate on test set
+    #     prec = validate(testloader, models, gate, criterion, args.cifar_type)
+    #
+    #     end_time = time.time()
+    #     passed_time = end_time - start_time
+    #     estimated_extra_time = passed_time * (args.epochs - epoch) / (epoch - args.start_epoch + 1)
+    #     print('time flies very fast .. {passed_time:.2f} mins passed, about {extra:.2f} mins left... step 1'.format(
+    #         passed_time=passed_time / 60, extra=estimated_extra_time / 60))
+    #
+    #     best_prec = max(prec, best_prec)
+    #     save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir)
 
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
@@ -444,11 +444,11 @@ def adjust_learning_rate(optimizer, epoch):
     if epoch < 60:
         lr = args.lr
     elif epoch < 120:
-        lr = args.lr * 0.1
+        lr = args.lr * 0.3
     elif epoch < 180:
-        lr = args.lr * 0.01
+        lr = args.lr * 0.09
     else:
-        lr = args.lr * 0.001
+        lr = args.lr * 0.027
 
     # """For resnet, the lr starts from 0.1, and is divided by 10 at 80 and 120 epochs"""
     # if model_type == 1:
