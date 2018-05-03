@@ -198,6 +198,7 @@ def main():
     #     save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir)
 
     start_time = time.time()
+    args.start_epoch = 0
     for epoch in range(args.start_epoch, args.epochs):
         adjust_learning_rate(gate_optimizer, epoch)
 
@@ -328,7 +329,7 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
             # losses[i].update(f_loss.mean().data[0], input.size(0))
 
         models_pred = torch.cat(models_pred, dim=1)
-        _, max_confident_idx = models_pred.topk(5, 1, True, True)
+        _, max_confident_idx = models_pred.topk(3, 1, True, True)
 
         min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
 
