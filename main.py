@@ -41,6 +41,7 @@ def main():
     global args, best_prec
     args = parser.parse_args()
     use_gpu = torch.cuda.is_available()
+    # torch.set_printoptions(precision=15)
 
     # Model building
     print('=> Building model...')
@@ -358,6 +359,8 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
 
     correct_classes = torch.zeros(model_num, num_classes)
     total_classes = torch.zeros(num_classes)
+    cnt = 0
+    correct_cnt = 0
 
     for i, (input, target) in enumerate(val_loader):
         input, target = input.cuda(), target.cuda()
@@ -391,12 +394,25 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
                 final_predicts = tmp_predicts
             else:
                 final_predicts+= tmp_predicts
+                # final_predicts = torch.max(final_predicts, tmp_predicts)
 
         prec = accuracy(final_predicts.data, target)[0]
         total_top1.update(prec[0], input.size(0))
 
         _, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
         _, max_pred_idx = pred_var.topk(1, 1, True, True)
+
+        if verbose:
+            for j in range(input.size(0)):
+                if min_loss_idx.data[j][0] != max_pred_idx.data[j][0]:
+                    cnt = cnt + 1
+                    print(pred_var[j, :].unsqueeze(0).data)
+                    correct_idx = min_loss_idx.data[j][0]
+                    pred_idx = max_pred_idx.data[j][0]
+                    if pred_var[j, correct_idx].data[0] >= 0.1:
+                        correct_cnt += 1
+                    print('correct/cnt : {}/{}, correct : {}, predict : {}\n'.format(correct_cnt, cnt, correct_idx, pred_idx))
+
         gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
 
 
