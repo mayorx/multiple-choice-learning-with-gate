@@ -246,31 +246,22 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
             outputs[idx] = models[idx](input_var)
 
         pred = F.softmax(gate(input_var),dim=1)
-        loss = 0
 
-        losses_detail = pred.data.clone()
-
+        models_pred = []
         for i in range(model_num):
-            #f_loss = criterion(outputs[i], target_var) * pred[:, i].contiguous().view(-1, 1)
-            f_loss = criterion(outputs[i], target_var)
-            # print('train f loss: {}'.format(f_loss))
-            # print('pred[:, {}] = {}'.format(i, pred[:, i]))
-            # print('mul : {}'.format(f_loss * pred[:, i]))
-            # print('mean: {}'.format((f_loss * pred[:, i]).mean()))
-
-            losses_detail[:, i] = f_loss.data
-            # print(f_loss)
-            # print(pred[:, i])
-            loss = loss + (f_loss * pred[:, i]).mean()
+            models_pred.append(torch.gather(F.softmax(outputs[i], dim=1), dim=1, index=target_var.view(-1,1)))
             prec = accuracy(outputs[i].data, target)[0]
             top1[i].update(prec[0], input.size(0))
-            losses[i].update(f_loss.mean().data[0], input.size(0))
+            # losses[i].update(f_loss.mean().data[0], input.size(0))
 
-        _, min_loss_idx = losses_detail.topk(1, 1, False, True)
-        _, max_pred_idx = pred.data.topk(1, 1, True, True)
-
-        gate_pred_correct += (min_loss_idx == max_pred_idx).sum()
-
+        models_pred = torch.cat(models_pred, dim=1)
+        loss = -torch.log(torch.mul(models_pred, pred).sum(dim=1)).mean()
+        if ix % 300 == 0 and epoch % 10 == 0:
+            print(models_pred)
+            print(pred)
+            print(torch.mul(models_pred, pred))
+            print(torch.mul(models_pred, pred).sum(dim=1))
+            print(loss)
 
         for i in range(model_num):
             optimizers[i].zero_grad()
@@ -284,7 +275,7 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         # print(losses[idx].avg)
         print('model {0}\t Train: Loss {loss.avg:.4f} Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
 
-    print('gate predict correct Train {}/{} {:.2f}%\n\n'.format(gate_pred_correct, len(trainloader.dataset),100. * gate_pred_correct / len(trainloader.dataset)))
+    # print('gate predict correct Train {}/{} {:.2f}%\n\n'.format(gate_pred_correct, len(trainloader.dataset),100. * gate_pred_correct / len(trainloader.dataset)))
 
 def validate(val_loader, models, gate, criterion):
     model_num = len(models)
