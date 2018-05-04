@@ -83,7 +83,8 @@ def main():
         #     print('model type unrecognized...')
         #     return
         # gate = gate_factory(args.gate_type, args.model_num)
-        gate = resnet20_cifar(num_classes=args.model_num)
+        # gate = resnet20_cifar(num_classes=args.model_num)
+        gate = gate_resnet(num_classes=args.model_num)
         models = []
         optimizers = []
         for i in range(0, args.model_num):
@@ -312,16 +313,21 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
         input_var = Variable(input)
         target_var = Variable(target)
 
-        pred_var = gate(input_var)
+        # pred_var = gate(input_var)
 
-        losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
-
+        losses_detail_var = Variable(torch.zeros([input.size(0), model_num])).cuda()
+        gate_input = []
         for i in range(model_num):
-            output = models[i](input_var)
+            conv_output, output = models[i](input_var)
+            gate_input.append(conv_output.detach())
+
             losses_detail_var[:, i] = criterion(output, target_var)
             prec = accuracy(output.data, target)[0]
             top1[i].update(prec[0], input.size(0))
             # losses[i].update(f_loss.mean().data[0], input.size(0))
+
+        gate_input = torch.cat(gate_input, dim=1)
+        pred_var = gate(gate_input)
 
         min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
 
@@ -370,30 +376,35 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
             for t in target_var.data:
                 total_classes[t] += 1
 
-        # compute output
-        pred_var = F.softmax(gate(input_var), dim=1)
-        losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
+        losses_detail_var = Variable(torch.zeros([input.size(0), model_num])).cuda()
 
-        final_predicts = None
+        gate_input = []
+        outputs = []
         for idx in range(model_num):
-            output = models[idx](input_var)
+            conv_output, output = models[idx](input_var)
+            outputs.append(output)
+            gate_input.append(conv_output)
 
             loss = criterion(output, target_var)
             losses_detail_var[:, idx] = loss
-
             prec = accuracy(output.data, target)[0]
-            # losses[idx].update(loss.data[0], input.size(0))
             top1[idx].update(prec[0], input.size(0))
             if verbose:
                 _, max_pred_idx = output.topk(1, 1, True, True)
                 for j in range(len(max_pred_idx)):
                     correct_classes[idx][target[j]] += target[j] == max_pred_idx.data[j][0]
 
-            tmp_predicts = F.softmax(output, dim=1) * pred_var[:, idx].contiguous().view(-1,1)
+        gate_input = torch.cat(gate_input, dim=1)
+        pred_var = F.softmax(gate(gate_input), dim=1)
+
+        final_predicts = None
+        for idx in range(model_num):
+            output = outputs[idx]
+            tmp_predicts = F.softmax(output, dim=1) * pred_var[:, idx].contiguous().view(-1, 1)
             if idx == 0:
                 final_predicts = tmp_predicts
             else:
-                final_predicts+= tmp_predicts
+                final_predicts += tmp_predicts
                 # final_predicts = torch.max(final_predicts, tmp_predicts)
 
         prec = accuracy(final_predicts.data, target)[0]

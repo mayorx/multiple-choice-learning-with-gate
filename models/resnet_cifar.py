@@ -204,27 +204,28 @@ class ResNet_Cifar(nn.Module):
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
+        conv_output = x
 
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
         x = self.fc(x)
 
-        return x
+        return conv_output, x
 
 class GateResNet(nn.Module):
 
     def __init__(self, block, layers, num_classes=2):
         super(GateResNet, self).__init__()
         self.inplanes = 16
-        self.conv1 = nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(320, 16, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(16)
         self.relu = nn.ReLU(inplace=True)
         self.layer1 = self._make_layer(block, 16, layers[0])
         self.layer2 = self._make_layer(block, 32, layers[1], stride=2)
         self.layer3 = self._make_layer(block, 64, layers[2], stride=2)
-        self.avgpool = nn.AvgPool2d(8, stride=1)
+        self.avgpool = nn.AvgPool2d(2, stride=1)
         self.fc = nn.Linear(64 * block.expansion, num_classes)
-        self.sm = nn.Softmax(dim=1)
+        # self.sm = nn.Softmax(dim=1)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -251,18 +252,27 @@ class GateResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
+        # print('gate resnet start!')
+        # print(x.shape)
         x = self.conv1(x)
+        # print(x.shape)
         x = self.bn1(x)
         x = self.relu(x)
+        # print(x.shape)
 
+        # print('layer start')
         x = self.layer1(x)
+        # print(x.shape)
         x = self.layer2(x)
+        # print(x.shape)
         x = self.layer3(x)
+        # print(x.shape)
 
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
         x = self.fc(x)
-        return self.sm(x)
+        # print(x.shape)
+        return x
 
 
 class PreAct_ResNet_Cifar(nn.Module):
@@ -373,7 +383,7 @@ def preact_resnet1001_cifar(**kwargs):
     return model
 
 def gate_resnet(**kwargs):
-    model = GateResNet(BasicBlock, [5, 5, 5], **kwargs)
+    model = GateResNet(BasicBlock, [3, 3, 3], **kwargs)
     return model
 
 if __name__ == '__main__':
