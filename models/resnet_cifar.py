@@ -217,11 +217,13 @@ class ResNet_Cifar(nn.Module):
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
         # conv_output = x
-        x = self.fc(x)
-
         real_convs = []
         for conv in convs:
             real_convs.append(conv.view(x.size(0), -1, 32, 32))
+        real_convs.append(x)
+        x = self.fc(x)
+
+
         # conv_output = conv_output.view(x.size(0), -1, 32, 32)
 
         return real_convs, x

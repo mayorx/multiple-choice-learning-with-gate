@@ -343,11 +343,13 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
         conv1_features = []
         conv2_features = []
         conv3_features = []
+        conv4_features = []
         for i in range(model_num):
             conv_output, output = models[i](input_var)
             conv1_features.append(conv_output[0])
             conv2_features.append(conv_output[1])
             conv3_features.append(conv_output[2])
+            conv4_features.append(conv_output[3])
             # gate_input.append(conv_output.detach())
             # gate_input.append(F.softmax(output, dim=1).detach())
             # gate_input.append(conv_output.detach())
@@ -360,10 +362,11 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
         conv1_features = torch.cat(conv1_features, dim=1)
         conv2_features = torch.cat(conv2_features, dim=1)
         conv3_features = torch.cat(conv3_features, dim=1)
+        conv4_features = torch.cat(conv4_features, dim=1)
         # print(gate_input)
         # gate_input = torch.cat(gate_input, dim=1)
         # print(gate_input)
-        pred_var = gate(conv1_features, conv2_features, conv3_features)
+        pred_var = gate(conv1_features, conv2_features, conv3_features, conv4_features)
 
         min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
 
@@ -419,11 +422,13 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
         conv1_features = []
         conv2_features = []
         conv3_features = []
+        conv4_features = []
         for idx in range(model_num):
             conv_output, output = models[idx](input_var)
             conv1_features.append(conv_output[0])
             conv2_features.append(conv_output[1])
             conv3_features.append(conv_output[2])
+            conv4_features.append(conv_output[3])
 
             # for image_idx in range(input.size(0)):
             #     images = conv_output.cpu().data[image_idx]
@@ -449,6 +454,7 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
         conv1_features = torch.cat(conv1_features, dim=1)
         conv2_features = torch.cat(conv2_features, dim=1)
         conv3_features = torch.cat(conv3_features, dim=1)
+        conv4_features = torch.cat(conv4_features, dim=1)
         # print(conv1_features.shape)
         # print(conv2_features.shape)
         # print(conv3_features.shape)
@@ -459,7 +465,7 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
         # print(target)
         # exit(0)
         # gate_input = torch.cat(gate_input, dim=1)
-        pred_var = F.softmax(gate(conv1_features, conv2_features, conv3_features), dim=1)
+        pred_var = F.softmax(gate(conv1_features, conv2_features, conv3_features, conv4_features), dim=1)
 
         final_predicts = None
         for idx in range(model_num):

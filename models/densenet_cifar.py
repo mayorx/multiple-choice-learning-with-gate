@@ -113,9 +113,9 @@ class DenseNet_Cifar(nn.Module):
 class GateDenseNet(nn.Module):
 
     def __init__(self, growth_rate=12, block_config=(3, 3, 3),
-                 num_init_features=36, bn_size=4, drop_rate=0, num_classes=5):
+                 num_init_features=140, bn_size=4, drop_rate=0, num_classes=5):
 
-        num_init_features = growth_rate * 3
+        # num_init_features = growth_rate * 3
         super(GateDenseNet, self).__init__()
 
         # First convolution
@@ -123,9 +123,9 @@ class GateDenseNet(nn.Module):
         #     ('conv0', nn.Conv2d(3, num_init_features, kernel_size=3, stride=1, padding=1, bias=False)),
         # ]))
 
-        self.dense_layer1 = _DenseLayer(80, growth_rate, bn_size, drop_rate)
-        self.dense_layer2 = _DenseLayer(40, growth_rate, bn_size, drop_rate)
-        self.dense_layer3 = _DenseLayer(20, growth_rate, bn_size, drop_rate)
+        # self.dense_layer1 = _DenseLayer(80, growth_rate, bn_size, drop_rate)
+        # self.dense_layer2 = _DenseLayer(40, growth_rate, bn_size, drop_rate)
+        # self.dense_layer3 = _DenseLayer(20, growth_rate, bn_size, drop_rate)
         self.features = nn.Sequential()
 
         # Each denseblock
@@ -144,7 +144,7 @@ class GateDenseNet(nn.Module):
         self.features.add_module('norm5', nn.BatchNorm2d(num_features))
 
         # Linear layer
-        self.classifier = nn.Linear(num_features, num_classes)
+        self.classifier = nn.Linear(num_features + 320, num_classes)
 
         # initialize conv and bn parameters
         for m in self.modules():
@@ -158,19 +158,21 @@ class GateDenseNet(nn.Module):
     #conv_layer1: 100 * 80 * 32 * 32
     #conv_layer2: 100 * 40 * 32 * 32
     #conv_layer3: 100 * 20 * 32 * 32
-    def forward(self, conv_layer1, conv_layer2, conv_layer3):
-        feature1 = self.dense_layer1.only_forward(conv_layer1)
-        feature2 = self.dense_layer2.only_forward(conv_layer2)
-        feature3 = self.dense_layer3.only_forward(conv_layer3)
+    def forward(self, conv_layer1, conv_layer2, conv_layer3, fc_output):
 
-        features = torch.cat([feature1, feature2, feature3], dim=1)
+        # feature1 = self.dense_layer1.only_forward(conv_layer1)
+        # feature2 = self.dense_layer2.only_forward(conv_layer2)
+        # feature3 = self.dense_layer3.only_forward(conv_layer3)
+        features = torch.cat([conv_layer1, conv_layer2, conv_layer3], dim=1)
+
+        # features = torch.cat([feature1, feature2, feature3], dim=1)
         # print('features.shape: {}'.format(features.shape))
 
         features = self.features(features)
         # print(features.shape)
         out = F.relu(features, inplace=True)
         out = F.avg_pool2d(out, kernel_size=8, stride=1).view(features.size(0), -1)
-        # print('out shape {}'.format(out.shape))
+        out = torch.cat([out, fc_output], dim=1)
         out = self.classifier(out)
         return out
 
