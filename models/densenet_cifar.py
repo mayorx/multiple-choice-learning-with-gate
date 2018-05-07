@@ -31,6 +31,9 @@ class _DenseLayer(nn.Sequential):
             new_features = F.dropout(new_features, p=self.drop_rate, training=self.training)
         return torch.cat([x, new_features], 1)
 
+    def only_forward(self, x):
+        return super(_DenseLayer, self).forward(x)
+
 
 class _DenseBlock(nn.Sequential):
     def __init__(self, num_layers, num_input_features, bn_size, growth_rate, drop_rate):
@@ -107,6 +110,69 @@ class DenseNet_Cifar(nn.Module):
         out = self.classifier(out)
         return out
 
+class GateDenseNet(nn.Module):
+
+    def __init__(self, growth_rate=12, block_config=(3, 3, 3),
+                 num_init_features=36, bn_size=4, drop_rate=0, num_classes=5):
+
+        num_init_features = growth_rate * 3
+        super(GateDenseNet, self).__init__()
+
+        # First convolution
+        # self.features = nn.Sequential(OrderedDict([
+        #     ('conv0', nn.Conv2d(3, num_init_features, kernel_size=3, stride=1, padding=1, bias=False)),
+        # ]))
+
+        self.dense_layer1 = _DenseLayer(80, growth_rate, bn_size, drop_rate)
+        self.dense_layer2 = _DenseLayer(40, growth_rate, bn_size, drop_rate)
+        self.dense_layer3 = _DenseLayer(20, growth_rate, bn_size, drop_rate)
+        self.features = nn.Sequential()
+
+        # Each denseblock
+        num_features = num_init_features
+        for i, num_layers in enumerate(block_config):
+            block = _DenseBlock(num_layers=num_layers, num_input_features=num_features,
+                                bn_size=bn_size, growth_rate=growth_rate, drop_rate=drop_rate)
+            self.features.add_module('denseblock%d' % (i + 1), block)
+            num_features = num_features + num_layers * growth_rate
+            if i != len(block_config) - 1:
+                trans = _Transition(num_input_features=num_features, num_output_features=num_features // 2)
+                self.features.add_module('transition%d' % (i + 1), trans)
+                num_features = num_features // 2
+
+        # Final batch norm
+        self.features.add_module('norm5', nn.BatchNorm2d(num_features))
+
+        # Linear layer
+        self.classifier = nn.Linear(num_features, num_classes)
+
+        # initialize conv and bn parameters
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+
+    #conv_layer1: 100 * 80 * 32 * 32
+    #conv_layer2: 100 * 40 * 32 * 32
+    #conv_layer3: 100 * 20 * 32 * 32
+    def forward(self, conv_layer1, conv_layer2, conv_layer3):
+        feature1 = self.dense_layer1.only_forward(conv_layer1)
+        feature2 = self.dense_layer2.only_forward(conv_layer2)
+        feature3 = self.dense_layer3.only_forward(conv_layer3)
+
+        features = torch.cat([feature1, feature2, feature3], dim=1)
+        # print('features.shape: {}'.format(features.shape))
+
+        features = self.features(features)
+        # print(features.shape)
+        out = F.relu(features, inplace=True)
+        out = F.avg_pool2d(out, kernel_size=8, stride=1).view(features.size(0), -1)
+        # print('out shape {}'.format(out.shape))
+        out = self.classifier(out)
+        return out
 
 def densenet_BC_cifar(depth, k, **kwargs):
     N = (depth - 4) // 6

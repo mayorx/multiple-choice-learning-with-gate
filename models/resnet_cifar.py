@@ -202,21 +202,29 @@ class ResNet_Cifar(nn.Module):
         x = self.relu(x)
         # conv_output = x
 
+        convs = []
+
         x = self.layer1(x)
-        conv_output = x
+        convs.append(x)
+        # conv_output1 = x
         x = self.layer2(x)
-        # conv_output = x
+        # conv_output2 = x
+        convs.append(x)
         x = self.layer3(x)
-        # conv_output = x
+        convs.append(x)
+        # conv_output3 = x
 
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
         # conv_output = x
         x = self.fc(x)
 
-        conv_output = conv_output.view(x.size(0), -1, 32, 32)
+        real_convs = []
+        for conv in convs:
+            real_convs.append(conv.view(x.size(0), -1, 32, 32))
+        # conv_output = conv_output.view(x.size(0), -1, 32, 32)
 
-        return conv_output, x
+        return real_convs, x
 
 class GateResNet(nn.Module):
 
@@ -259,29 +267,29 @@ class GateResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        shapes = []
-        shapes.append(x.shape)
+        # shapes = []
+        # shapes.append(x.shape)
         # print(x.shape)
         x = self.conv1(x)
         # print(x.shape)
-        shapes.append(x.shape)
+        # shapes.append(x.shape)
         x = self.bn1(x)
-        shapes.append(x.shape)
+        # shapes.append(x.shape)
         x = self.relu(x)
-        shapes.append(x.shape)
+        # shapes.append(x.shape)
         x = self.layer1(x)
-        shapes.append(x.shape)
+        # shapes.append(x.shape)
         x = self.layer2(x)
-        shapes.append(x.shape)
+        # shapes.append(x.shape)
         x = self.layer3(x)
-        shapes.append(x.shape)
+        # shapes.append(x.shape)
         x = self.avgpool(x)
-        shapes.append(x.shape)
+        # shapes.append(x.shape)
         x = x.view(x.size(0), -1)
         # print(shapes)
         x = self.fc(x)
         # print(x.shape)
-        shapes.append(x.shape)
+        # shapes.append(x.shape)
         # if True:
         #     print(shapes)
         return x

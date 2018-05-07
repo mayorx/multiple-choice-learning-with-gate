@@ -49,6 +49,9 @@ def imshow(img, id):
     plt.imshow(np.transpose(npimg, (1, 2, 0)))
     plt.savefig('img/{}.png'.format(id), bbox_inches='tight')
 
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
 def main():
     global args, best_prec
     args = parser.parse_args()
@@ -96,7 +99,9 @@ def main():
         #     return
         # gate = gate_factory(args.gate_type, args.model_num)
         # gate = resnet20_cifar(num_classes=args.model_num)
-        gate = gate_resnet(num_classes=args.model_num)
+        # gate = gate_resnet(num_classes=args.model_num)
+        gate = GateDenseNet(num_classes=args.model_num)
+        print('gate parameters {}'.format(count_parameters(gate)))
         # gate = GateNet(args.model_num)
         models = []
         optimizers = []
@@ -158,7 +163,7 @@ def main():
                 transforms.ToTensor(),
                 normalize,
             ]))
-        testloader = torch.utils.data.DataLoader(test_dataset, batch_size=10, shuffle=False, num_workers=2)
+        testloader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False, num_workers=2)
     # CIFAR100
     else:
         print('=> loading cifar100 data...')
@@ -335,20 +340,30 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
 
         losses_detail_var = Variable(torch.zeros([input.size(0), model_num])).cuda()
         gate_input = []
+        conv1_features = []
+        conv2_features = []
+        conv3_features = []
         for i in range(model_num):
             conv_output, output = models[i](input_var)
+            conv1_features.append(conv_output[0])
+            conv2_features.append(conv_output[1])
+            conv3_features.append(conv_output[2])
             # gate_input.append(conv_output.detach())
             # gate_input.append(F.softmax(output, dim=1).detach())
-            gate_input.append(conv_output.detach())
+            # gate_input.append(conv_output.detach())
 
             losses_detail_var[:, i] = criterion(output, target_var)
             prec = accuracy(output.data, target)[0]
             top1[i].update(prec[0], input.size(0))
             # losses[i].update(f_loss.mean().data[0], input.size(0))
+
+        conv1_features = torch.cat(conv1_features, dim=1)
+        conv2_features = torch.cat(conv2_features, dim=1)
+        conv3_features = torch.cat(conv3_features, dim=1)
         # print(gate_input)
-        gate_input = torch.cat(gate_input, dim=1)
+        # gate_input = torch.cat(gate_input, dim=1)
         # print(gate_input)
-        pred_var = gate(gate_input)
+        pred_var = gate(conv1_features, conv2_features, conv3_features)
 
         min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
 
@@ -401,8 +416,15 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
 
         gate_input = []
         outputs = []
+        conv1_features = []
+        conv2_features = []
+        conv3_features = []
         for idx in range(model_num):
             conv_output, output = models[idx](input_var)
+            conv1_features.append(conv_output[0])
+            conv2_features.append(conv_output[1])
+            conv3_features.append(conv_output[2])
+
             # for image_idx in range(input.size(0)):
             #     images = conv_output.cpu().data[image_idx]
             #     images = images.unsqueeze(1)
@@ -413,7 +435,7 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
             outputs.append(output)
             # gate_input.append(conv_output)
             # gate_input.append(F.softmax(output, dim=1))
-            gate_input.append(conv_output.detach())
+            # gate_input.append(conv_output.detach())
 
             loss = criterion(output, target_var)
             losses_detail_var[:, idx] = loss
@@ -424,14 +446,20 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
                 for j in range(len(max_pred_idx)):
                     correct_classes[idx][target[j]] += target[j] == max_pred_idx.data[j][0]
 
+        conv1_features = torch.cat(conv1_features, dim=1)
+        conv2_features = torch.cat(conv2_features, dim=1)
+        conv3_features = torch.cat(conv3_features, dim=1)
+        # print(conv1_features.shape)
+        # print(conv2_features.shape)
+        # print(conv3_features.shape)
         # classes = ('plane', 'car', 'bird', 'cat',
         #            'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
         # for idx in range(input.size(0)):
         #     print('idx-{}-class-{}'.format(idx, classes[target[idx]]))
         # print(target)
         # exit(0)
-        gate_input = torch.cat(gate_input, dim=1)
-        pred_var = F.softmax(gate(gate_input), dim=1)
+        # gate_input = torch.cat(gate_input, dim=1)
+        pred_var = F.softmax(gate(conv1_features, conv2_features, conv3_features), dim=1)
 
         final_predicts = None
         for idx in range(model_num):
@@ -450,15 +478,16 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
         _, max_pred_idx = pred_var.topk(1, 1, True, True)
 
         if verbose:
-            for j in range(input.size(0)):
-                if min_loss_idx.data[j][0] != max_pred_idx.data[j][0]:
-                    cnt = cnt + 1
-                    print(pred_var[j, :].unsqueeze(0).data)
-                    correct_idx = min_loss_idx.data[j][0]
-                    pred_idx = max_pred_idx.data[j][0]
-                    if pred_var[j, correct_idx].data[0] >= 0.1:
-                        correct_cnt += 1
-                    print('correct/cnt : {}/{}, correct : {}, predict : {}\n'.format(correct_cnt, cnt, correct_idx, pred_idx))
+            ''
+            # for j in range(input.size(0)):
+            #     if min_loss_idx.data[j][0] != max_pred_idx.data[j][0]:
+            #         cnt = cnt + 1
+            #         print(pred_var[j, :].unsqueeze(0).data)
+            #         correct_idx = min_loss_idx.data[j][0]
+            #         pred_idx = max_pred_idx.data[j][0]
+            #         if pred_var[j, correct_idx].data[0] >= 0.1:
+            #             correct_cnt += 1
+            #         print('correct/cnt : {}/{}, correct : {}, predict : {}\n'.format(correct_cnt, cnt, correct_idx, pred_idx))
 
         gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
 
