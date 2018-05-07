@@ -10,6 +10,11 @@ import torch.optim as optim
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
+import matplotlib
+matplotlib.use('agg')
+
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 import torchvision
@@ -36,6 +41,13 @@ parser.add_argument('--name', default='anonymous', type=str, metavar='NAME', hel
 best_prec = 0
 now_learning_rate = 0
 ckpt_iter = 50
+
+def imshow(img, id):
+    img = img / 2 + 0.5     # unnormalize
+    img = img.clamp(0, 1)
+    npimg = img.numpy()
+    plt.imshow(np.transpose(npimg, (1, 2, 0)))
+    plt.savefig('img/{}.png'.format(id), bbox_inches='tight')
 
 def main():
     global args, best_prec
@@ -85,6 +97,7 @@ def main():
         # gate = gate_factory(args.gate_type, args.model_num)
         # gate = resnet20_cifar(num_classes=args.model_num)
         gate = gate_resnet(num_classes=args.model_num)
+        # gate = GateNet(args.model_num)
         models = []
         optimizers = []
         for i in range(0, args.model_num):
@@ -145,7 +158,7 @@ def main():
                 transforms.ToTensor(),
                 normalize,
             ]))
-        testloader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False, num_workers=2)
+        testloader = torch.utils.data.DataLoader(test_dataset, batch_size=10, shuffle=False, num_workers=2)
     # CIFAR100
     else:
         print('=> loading cifar100 data...')
@@ -174,6 +187,11 @@ def main():
         testloader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False, num_workers=2)
 
     if args.evaluate:
+        # dataiter = iter(testloader)
+        # images, labels = dataiter.next()
+        # print(images)
+        # print(labels)
+        # imshow(torchvision.utils.make_grid(images))
         validate(testloader, models, gate, criterion, args.cifar_type, verbose=True)
         return
 
@@ -319,14 +337,17 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
         gate_input = []
         for i in range(model_num):
             conv_output, output = models[i](input_var)
+            # gate_input.append(conv_output.detach())
+            # gate_input.append(F.softmax(output, dim=1).detach())
             gate_input.append(conv_output.detach())
 
             losses_detail_var[:, i] = criterion(output, target_var)
             prec = accuracy(output.data, target)[0]
             top1[i].update(prec[0], input.size(0))
             # losses[i].update(f_loss.mean().data[0], input.size(0))
-
+        # print(gate_input)
         gate_input = torch.cat(gate_input, dim=1)
+        # print(gate_input)
         pred_var = gate(gate_input)
 
         min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
@@ -382,8 +403,17 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
         outputs = []
         for idx in range(model_num):
             conv_output, output = models[idx](input_var)
+            # for image_idx in range(input.size(0)):
+            #     images = conv_output.cpu().data[image_idx]
+            #     images = images.unsqueeze(1)
+            #     images = torch.cat([images, images, images], dim=1)
+            #     # print(images)
+            #     imshow(torchvision.utils.make_grid(images), 'img-{}-expert-{}'.format(image_idx, idx))
+            # imshow(torchvision.utils.make_grid(input.cpu()), 'original')
             outputs.append(output)
-            gate_input.append(conv_output)
+            # gate_input.append(conv_output)
+            # gate_input.append(F.softmax(output, dim=1))
+            gate_input.append(conv_output.detach())
 
             loss = criterion(output, target_var)
             losses_detail_var[:, idx] = loss
@@ -394,6 +424,12 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
                 for j in range(len(max_pred_idx)):
                     correct_classes[idx][target[j]] += target[j] == max_pred_idx.data[j][0]
 
+        # classes = ('plane', 'car', 'bird', 'cat',
+        #            'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+        # for idx in range(input.size(0)):
+        #     print('idx-{}-class-{}'.format(idx, classes[target[idx]]))
+        # print(target)
+        # exit(0)
         gate_input = torch.cat(gate_input, dim=1)
         pred_var = F.softmax(gate(gate_input), dim=1)
 
@@ -469,15 +505,16 @@ def save_checkpoint(epoch, model_num, models, optimizers, gate, gate_optimizer, 
     torch.save(state, filepath)
 
 def adjust_learning_rate(optimizer, epoch):
+    factor = 0.1
     global now_learning_rate
     if epoch < 60:
         lr = args.lr
     elif epoch < 120:
-        lr = args.lr * 0.3
+        lr = args.lr * factor
     elif epoch < 180:
-        lr = args.lr * 0.09
+        lr = args.lr * factor * factor
     else:
-        lr = args.lr * 0.027
+        lr = args.lr * factor * factor * factor
 
     # """For resnet, the lr starts from 0.1, and is divided by 10 at 80 and 120 epochs"""
     # if model_type == 1:
