@@ -37,6 +37,9 @@ best_prec = 0
 now_learning_rate = 0
 ckpt_iter = 50
 
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
 def main():
     global args, best_prec
     args = parser.parse_args()
@@ -84,6 +87,7 @@ def main():
         #     return
         # gate = gate_factory(args.gate_type, args.model_num)
         gate = resnet20_cifar(num_classes=args.model_num)
+        print('gate parameters {}'.format(count_parameters(gate)))
         models = []
         optimizers = []
         for i in range(0, args.model_num):
