@@ -37,6 +37,9 @@ best_prec = 0
 now_learning_rate = 0
 ckpt_iter = 50
 
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
 def main():
     global args, best_prec
     args = parser.parse_args()
@@ -84,7 +87,10 @@ def main():
         #     return
         # gate = gate_factory(args.gate_type, args.model_num)
         # gate = resnet20_cifar(num_classes=args.model_num)
-        gate = gate_resnet(num_classes=args.model_num)
+        # gate = gate_resnet(num_classes=args.model_num)
+        gate = densenet_BC_cifar(22, 12, num_classes=args.model_num)
+        print('gate parameters {}'.format(count_parameters(gate)))
+
         models = []
         optimizers = []
         for i in range(0, args.model_num):
@@ -327,7 +333,7 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
             # losses[i].update(f_loss.mean().data[0], input.size(0))
 
         gate_input = torch.cat(gate_input, dim=1)
-        pred_var = gate(gate_input)
+        pred_var = gate(input_var)
 
         min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
 
@@ -395,7 +401,7 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
                     correct_classes[idx][target[j]] += target[j] == max_pred_idx.data[j][0]
 
         gate_input = torch.cat(gate_input, dim=1)
-        pred_var = F.softmax(gate(gate_input), dim=1)
+        pred_var = F.softmax(gate(input_var), dim=1)
 
         final_predicts = None
         for idx in range(model_num):
