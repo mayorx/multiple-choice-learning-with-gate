@@ -205,17 +205,17 @@ class ResNet_Cifar(nn.Module):
         x = self.relu(x)
 
         x = self.layer1(x)
-        conv_output.append(x.view(x.size(0), -1, 32, 32))
+        # conv_output.append(x.view(x.size(0), -1, 32, 32))
         x = self.layer2(x)
-        conv_output.append(x.view(x.size(0), -1, 32, 32))
+        # conv_output.append(x.view(x.size(0), -1, 32, 32))
         x = self.layer3(x)
-        conv_output.append(x.view(x.size(0), -1, 32, 32))
+        # conv_output.append(x.view(x.size(0), -1, 32, 32))
 
-        conv_output = torch.cat(conv_output, dim=1)
+        # conv_output = torch.cat(conv_output, dim=1)
 
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
-        # conv_output = x
+        conv_output = x
         x = self.fc(x)
 
         return conv_output, x
