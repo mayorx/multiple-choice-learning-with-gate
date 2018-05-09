@@ -204,13 +204,14 @@ class ResNet_Cifar(nn.Module):
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
-        conv_output = x
 
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
+        features = [x]
         x = self.fc(x)
-
-        return conv_output, x
+        features.append(x)
+        features = torch.cat(features, dim=1)
+        return features, x
 
 class GateResNet(nn.Module):
 
