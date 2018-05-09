@@ -84,8 +84,10 @@ def main():
         #     return
         # gate = gate_factory(args.gate_type, args.model_num)
         # gate = resnet20_cifar(num_classes=args.model_num)
-        gate = gate_resnet(num_classes=args.model_num)
+        # gate = gate_resnet(num_classes=args.model_num)
         models = []
+        gates = []
+        gate_optimizers = []
         optimizers = []
         for i in range(0, args.model_num):
             model = resnet20_cifar(num_classes=args.cifar_type)
@@ -95,9 +97,15 @@ def main():
             models.append(model)
             optimizers.append(optimizer)
 
-        gate = nn.DataParallel(gate).cuda()
-        gate_optimizer = optim.SGD(gate.parameters(), args.lr, momentum=args.momentum, weight_decay=args.weight_decay,
+            # gate = resnet20_cifar(1)
+            gate = GateNet(1) ##todo: hehe
+            gate = nn.DataParallel(gate).cuda()
+            gate_optimizer = optim.SGD(gate.parameters(), args.lr, momentum=args.momentum, weight_decay=args.weight_decay,
                                    nesterov=True)
+
+            gates.append(gate)
+            gate_optimizers.append(gate_optimizer)
+
         criterion = nn.CrossEntropyLoss(reduce=False).cuda()
         cudnn.benchmark = True
     else:
@@ -203,14 +211,15 @@ def main():
     start_time = time.time()
     args.start_epoch = 0
     for epoch in range(args.start_epoch, args.epochs):
-        adjust_learning_rate(gate_optimizer, epoch)
+        for opti in gate_optimizers:
+            adjust_learning_rate(opti, epoch)
 
         print('Epoch: Training Gate {0}\t LR = {lr:.4f}'.format(epoch, lr=now_learning_rate))
         # train for one epoch
-        train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
+        train_gate(trainloader, criterion, models, optimizers, gates, gate_optimizers, epoch)
 
         # evaluate on test set
-        prec = validate(testloader, models, gate, criterion, args.cifar_type)
+        prec = validate(testloader, models, gates, criterion, args.cifar_type)
 
         end_time = time.time()
         passed_time = end_time - start_time
@@ -221,7 +230,7 @@ def main():
         # remember best precision and save checkpoint
         is_best = prec > best_prec
         best_prec = max(prec, best_prec)
-        save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir)
+        # save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir)
 
     print('finished. best_prec: {:.4f}'.format(best_prec))
 
@@ -296,10 +305,11 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         print('model {0}\t Train: Loss {loss.avg:.4f} Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
 
 
-def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch):
+def train_gate(trainloader, criterion, models, optimizers, gates, gate_optimizers, epoch):
     model_num = len(models)
 
-    gate.train()
+    for gate in gates:
+        gate.train()
 
     losses = []
     top1 = []
@@ -308,26 +318,26 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
         top1.append(AverageMeter())
 
     gate_pred_correct = 0
+
     for ix, (input, target) in enumerate(trainloader):
         input, target = input.cuda(), target.cuda()
         input_var = Variable(input)
         target_var = Variable(target)
 
-        # pred_var = gate(input_var)
-
         losses_detail_var = Variable(torch.zeros([input.size(0), model_num])).cuda()
-        gate_input = []
+        pred_var = []
+
         for i in range(model_num):
             conv_output, output = models[i](input_var)
-            gate_input.append(conv_output.detach())
+            gate_output = gates[i](conv_output)
+
+            pred_var.append(gate_output)
 
             losses_detail_var[:, i] = criterion(output, target_var)
             prec = accuracy(output.data, target)[0]
             top1[i].update(prec[0], input.size(0))
-            # losses[i].update(f_loss.mean().data[0], input.size(0))
 
-        gate_input = torch.cat(gate_input, dim=1)
-        pred_var = gate(gate_input)
+        pred_var = torch.cat(pred_var, dim=1)
 
         min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
 
@@ -336,22 +346,25 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
 
         gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
 
-        gate_optimizer.zero_grad()
+        for opti in gate_optimizers:
+            opti.zero_grad()
         gate_loss.backward()
-        gate_optimizer.step()
+        for opti in gate_optimizers:
+            opti.step()
 
     for idx in range(model_num):
         print('model {0}\t Train: Loss {loss.avg:.4f} Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
 
     print('gate predict correct Train {}/{} {:.2f}%\n\n'.format(gate_pred_correct, len(trainloader.dataset),100. * gate_pred_correct / len(trainloader.dataset)))
 
-def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
+def validate(val_loader, models, gates, criterion, num_classes, verbose=False):
     model_num = len(models)
 
     # switch to evaluate mode
     for model in models:
         model.eval()
-    gate.eval()
+    for gate in gates:
+        gate.eval()
 
     losses = []
     top1 = []
@@ -378,12 +391,14 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
 
         losses_detail_var = Variable(torch.zeros([input.size(0), model_num])).cuda()
 
-        gate_input = []
         outputs = []
+        pred_var = []
         for idx in range(model_num):
             conv_output, output = models[idx](input_var)
             outputs.append(output)
-            gate_input.append(conv_output)
+
+            gate_output = gates[idx](conv_output)
+            pred_var.append(gate_output)
 
             loss = criterion(output, target_var)
             losses_detail_var[:, idx] = loss
@@ -394,13 +409,13 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
                 for j in range(len(max_pred_idx)):
                     correct_classes[idx][target[j]] += target[j] == max_pred_idx.data[j][0]
 
-        gate_input = torch.cat(gate_input, dim=1)
-        pred_var = F.softmax(gate(gate_input), dim=1)
+        pred_var = torch.cat(pred_var, dim=1)
+        pred_var_softmax = F.softmax(pred_var, dim=1)
 
         final_predicts = None
         for idx in range(model_num):
             output = outputs[idx]
-            tmp_predicts = F.softmax(output, dim=1) * pred_var[:, idx].contiguous().view(-1, 1)
+            tmp_predicts = F.softmax(output, dim=1) * pred_var_softmax[:, idx].contiguous().view(-1, 1)
             if idx == 0:
                 final_predicts = tmp_predicts
             else:

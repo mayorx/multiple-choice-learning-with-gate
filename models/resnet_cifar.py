@@ -204,10 +204,11 @@ class ResNet_Cifar(nn.Module):
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
-        conv_output = x
+        # conv_output = x
 
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
+        conv_output = x
         x = self.fc(x)
 
         return conv_output, x
