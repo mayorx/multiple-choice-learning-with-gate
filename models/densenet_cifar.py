@@ -63,15 +63,16 @@ class DenseNet_Cifar(nn.Module):
         drop_rate (float) - dropout rate after each dense layer
         num_classes (int) - number of classification classes
     """
-    def __init__(self, growth_rate=12, block_config=(16, 16, 16),
+    def __init__(self, growth_rate=12, block_config=(3, 3, 3),
                  num_init_features=24, bn_size=4, drop_rate=0, num_classes=10):
 
         super(DenseNet_Cifar, self).__init__()
 
         # First convolution
-        self.features = nn.Sequential(OrderedDict([
-            ('conv0', nn.Conv2d(3, num_init_features, kernel_size=3, stride=1, padding=1, bias=False)),
-        ]))
+        # self.features = nn.Sequential(OrderedDict([
+        #     ('conv0', nn.Conv2d(3, num_init_features, kernel_size=3, stride=1, padding=1, bias=False)),
+        # ]))
+        self.features = nn.Sequential()
 
         # Each denseblock
         num_features = num_init_features
