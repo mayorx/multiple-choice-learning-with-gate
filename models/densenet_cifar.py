@@ -63,8 +63,8 @@ class DenseNet_Cifar(nn.Module):
         drop_rate (float) - dropout rate after each dense layer
         num_classes (int) - number of classification classes
     """
-    def __init__(self, growth_rate=12, block_config=(3, 3, 3),
-                 num_init_features=24, bn_size=4, drop_rate=0, num_classes=10):
+    def __init__(self, growth_rate=24, block_config=(3, 3, 3),
+                 num_init_features=47, bn_size=4, drop_rate=0, num_classes=10):
 
         super(DenseNet_Cifar, self).__init__()
 
