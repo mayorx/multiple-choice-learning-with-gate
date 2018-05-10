@@ -10,6 +10,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
+import math
 
 
 import torchvision
@@ -229,30 +230,41 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
     for idx in range(model_num):
         losses.append(AverageMeter())
         top1.append(AverageMeter())
-    lam = 1.0 / (model_num - 1)
+    # lam = 1.0 / (model_num - 1)
+    lam = 1.0
+    threshold = 0.5 * math.log(100)
 
     for ix, (input, target) in enumerate(trainloader):
         input, target = input.cuda(), target.cuda()
         input_var = Variable(input)
         target_var = Variable(target)
 
-        pred_var = gate(input_var)
+        # pred_var = gate(input_var)
 
         losses_detail_var = Variable(torch.zeros([len(target), model_num])).cuda()
         entropy_detail_var = Variable(torch.zeros([len(target), model_num])).cuda()
+        judge_entropy_var = Variable(torch.zeros([len(target), model_num])).cuda()
         for i in range(model_num):
             output = models[i](input_var)
             losses_detail_var[:, i] = criterion(output, target_var)
             entropy_detail_var[:, i] = -torch.log(F.softmax(output, dim=1) + 1e-9).mean(dim=1)
+            judge_entropy_var[:, i] = -(torch.log(F.softmax(output, dim=1) + 1e-9) * F.softmax(output, dim=1)).mean(dim=1)
             prec = accuracy(output.data, target)[0]
             top1[i].update(prec[0], input.size(0))
-        entropy_sum_var = entropy_detail_var.sum(dim=1)
+
+        need_entropy_regularization = judge_entropy_var < threshold
 
         min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
-        choosed_expert_entropy = torch.gather(entropy_detail_var, 1, min_loss_idx)
-        experts_loss = min_loss_value.mean() + lam * (entropy_sum_var.mean() - choosed_expert_entropy.mean())
 
-        _, max_pred_idx = pred_var.topk(1, 1, True, True)
+        need_entropy_regularization.scatter_(1, min_loss_idx, 0)
+
+        final_entropy_detail_var = need_entropy_regularization.float() * entropy_detail_var
+        experts_loss = min_loss_value.mean() + lam * final_entropy_detail_var.mean()
+
+        if epoch % 10 == 0 and ix % 300 == 0:
+            print(min_loss_value)
+            print(judge_entropy_var)
+            print(need_entropy_regularization)
 
 
         for i in range(model_num):
