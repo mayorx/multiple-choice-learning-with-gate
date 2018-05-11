@@ -253,7 +253,6 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         losses.append(AverageMeter())
         top1.append(AverageMeter())
 
-    cnt = [0, 0, 0, 0, 0]
     for ix, (input, target) in enumerate(trainloader):
         input, target = input.cuda(), target.cuda()
         input_var = Variable(input)
@@ -269,18 +268,8 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
             prec = accuracy(output.data, target)[0]
             top1[i].update(prec[0], input.size(0))
 
-        min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
-        experts_loss = min_loss_value.mean()
-
-        _, max_pred_idx = pred_var.topk(1, 1, True, True)
-        # print(max_pred_idx)
-        if epoch % 10 == 0:
-            #bias of gate
-            for gate_pred_idx in max_pred_idx.data[:,0]:
-                cnt[gate_pred_idx] = cnt[gate_pred_idx]+1
-            if ix % 200 == 0:
-                print(cnt)
-
+        min_loss_value, min_loss_idx = losses_detail_var.topk(3, 1, False, True)
+        experts_loss = min_loss_value.sum(dim=1).mean()
 
         for i in range(model_num):
             optimizers[i].zero_grad()
