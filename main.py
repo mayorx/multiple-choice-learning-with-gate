@@ -233,9 +233,9 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
     # lam = 1.0 / (model_num - 1)
     lam = 1.0
     # threshold = 0.5 * math.log(100)
-    threshold = 2.9907 #f(0.5)
+    # threshold = 2.9907 #f(0.5)
     # threshold = 4.176  # f(0.2)
-    # threshold = 4.6052 # f(0.01)
+    threshold = 4.6052 # f(0.01)
 
     for ix, (input, target) in enumerate(trainloader):
         input, target = input.cuda(), target.cuda()
@@ -257,12 +257,13 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
 
         need_entropy_regularization = judge_entropy_var < threshold
 
-        min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
+        min_loss_value, min_loss_idx = torch.topk(losses_detail_var, 3, 1, False, True)
+        # min_loss_value, min_loss_idx = losses_detail_var.topk(3, 1, False, True)
 
         need_entropy_regularization.scatter_(1, min_loss_idx, 0)
 
         final_entropy_detail_var = need_entropy_regularization.float() * entropy_detail_var
-        experts_loss = min_loss_value.mean() + lam * final_entropy_detail_var.mean()
+        experts_loss = min_loss_value.sum(dim=1).mean() + lam * final_entropy_detail_var.mean()
 
         if epoch % 10 == 0 and ix % 300 == 0:
             print(min_loss_value)
