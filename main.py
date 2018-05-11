@@ -232,7 +232,10 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         top1.append(AverageMeter())
     # lam = 1.0 / (model_num - 1)
     lam = 1.0
-    threshold = 0.5 * math.log(100)
+    # threshold = 0.5 * math.log(100)
+    #threshold = 2.9907 #f(0.5)
+    # threshold = 4.176  # f(0.2)
+    threshold = 4.6052 # f(0.01)
 
     for ix, (input, target) in enumerate(trainloader):
         input, target = input.cuda(), target.cuda()
