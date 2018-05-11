@@ -233,9 +233,9 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
     # lam = 1.0 / (model_num - 1)
     lam = 1.0
     # threshold = 0.5 * math.log(100)
-    #threshold = 2.9907 #f(0.5)
+    threshold = 2.9907 #f(0.5)
     # threshold = 4.176  # f(0.2)
-    threshold = 4.6052 # f(0.01)
+    # threshold = 4.6052 # f(0.01)
 
     for ix, (input, target) in enumerate(trainloader):
         input, target = input.cuda(), target.cuda()
@@ -251,7 +251,7 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
             output = models[i](input_var)
             losses_detail_var[:, i] = criterion(output, target_var)
             entropy_detail_var[:, i] = -torch.log(F.softmax(output, dim=1) + 1e-9).mean(dim=1)
-            judge_entropy_var[:, i] = -(torch.log(F.softmax(output, dim=1) + 1e-9) * F.softmax(output, dim=1)).mean(dim=1)
+            judge_entropy_var[:, i] = -(torch.log(F.softmax(output, dim=1) + 1e-9) * F.softmax(output, dim=1)).sum(dim=1)
             prec = accuracy(output.data, target)[0]
             top1[i].update(prec[0], input.size(0))
 
