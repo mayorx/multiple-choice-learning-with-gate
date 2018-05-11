@@ -217,7 +217,7 @@ def main():
 
         print('Epoch: Training Gate {0}\t LR = {lr:.4f}'.format(epoch, lr=now_learning_rate))
         # train for one epoch
-        train_gate(trainloader, criterion, models, optimizers, gates, gate_optimizers, epoch)
+        train_together(trainloader, criterion, models, optimizers, gates, gate_optimizers, epoch)
 
         # evaluate on test set
         prec = validate(testloader, models, gates, criterion, args.cifar_type)
@@ -267,13 +267,10 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         losses.append(AverageMeter())
         top1.append(AverageMeter())
 
-    cnt = [0, 0, 0, 0, 0]
     for ix, (input, target) in enumerate(trainloader):
         input, target = input.cuda(), target.cuda()
         input_var = Variable(input)
         target_var = Variable(target)
-
-        pred_var = gate(input_var)
 
         losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
 
@@ -286,15 +283,6 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
         experts_loss = min_loss_value.mean()
 
-        _, max_pred_idx = pred_var.topk(1, 1, True, True)
-        # print(max_pred_idx)
-        if epoch % 10 == 0:
-            #bias of gate
-            for gate_pred_idx in max_pred_idx.data[:,0]:
-                cnt[gate_pred_idx] = cnt[gate_pred_idx]+1
-            if ix % 200 == 0:
-                print(cnt)
-
 
         for i in range(model_num):
             optimizers[i].zero_grad()
@@ -306,11 +294,14 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         print('model {0}\t Train: Loss {loss.avg:.4f} Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
 
 
-def train_gate(trainloader, criterion, models, optimizers, gates, gate_optimizers, epoch):
+def train_together(trainloader, criterion, models, optimizers, gates, gate_optimizers, epoch):
     model_num = len(models)
 
     for gate in gates:
         gate.train()
+
+    for model in models:
+        model.train()
 
     losses = []
     top1 = []
@@ -341,16 +332,23 @@ def train_gate(trainloader, criterion, models, optimizers, gates, gate_optimizer
         pred_var = torch.cat(pred_var, dim=1)
 
         min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
+        experts_loss = min_loss_value.mean()
 
         gate_loss = criterion(pred_var, min_loss_idx[:, 0]).mean()
         _, max_pred_idx = pred_var.topk(1, 1, True, True)
 
         gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
 
+        loss = experts_loss + gate_loss
+
+        for opti in optimizers:
+            opti.zero_grad()
         for opti in gate_optimizers:
             opti.zero_grad()
-        gate_loss.backward()
+        loss.backward()
         for opti in gate_optimizers:
+            opti.step()
+        for opti in optimizers:
             opti.step()
 
     for idx in range(model_num):
