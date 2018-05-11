@@ -217,7 +217,7 @@ def main():
         # remember best precision and save checkpoint
         is_best = prec > best_prec
         best_prec = max(prec, best_prec)
-        save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir)
+        save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir, True)
 
     print('finished. best_prec: {:.4f}'.format(best_prec))
 
@@ -427,7 +427,7 @@ def save_checkpoint(epoch, model_num, models, optimizers, gate, gate_optimizer, 
         addition = addition + '-epoch-{}'.format(epoch)
         if isGate:
             addition = addition + '-Gate'
-    filepath = os.path.join(fdir, 'checkpoint{}.pth'.format('-epoch-{}'.format(epoch) if epoch % ckpt_iter == 0 else ''))
+    filepath = os.path.join(fdir, 'checkpoint{}.pth'.format(addition))
     state = {
         'epoch' : epoch + 1,
         'model_num': model_num,
