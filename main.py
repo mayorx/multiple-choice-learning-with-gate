@@ -393,9 +393,18 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
         prec = accuracy(final_predicts.data, target)[0]
         total_top1.update(prec[0], input.size(0))
 
-        _, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
+        _, min_loss_idx = losses_detail_var.topk(3, 1, False, True)
         _, max_pred_idx = pred_var.topk(1, 1, True, True)
-        gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
+
+        correct_cnt = None
+        for j in range(3):
+            tmp = min_loss_idx[:, 0].data == max_pred_idx[:, 0].data
+            if j == 0:
+                correct_cnt = tmp
+            else:
+                correct_cnt = correct_cnt | tmp
+        gate_pred_correct += correct_cnt.sum()
+        # gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
 
 
     for idx in range(model_num):
