@@ -305,13 +305,16 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
         top1.append(AverageMeter())
 
     gate_pred_correct = 0
+
+    lam = 1.0
+
     for ix, (input, target) in enumerate(trainloader):
         input, target = input.cuda(), target.cuda()
         input_var = Variable(input)
         target_var = Variable(target)
 
         pred_var = gate(input_var)
-
+        softmax_pred_var = F.softmax(pred_var, dim=1)
         losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
 
         for i in range(model_num):
@@ -324,6 +327,10 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
         min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
 
         gate_loss = criterion(pred_var, min_loss_idx[:, 0]).mean()
+
+        print(softmax_pred_var *)
+
+        exit(0)
         _, max_pred_idx = pred_var.topk(1, 1, True, True)
 
         gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
