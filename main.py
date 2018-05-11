@@ -326,11 +326,10 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
 
         min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
 
-        gate_loss = criterion(pred_var, min_loss_idx[:, 0]).mean()
+        entropy_detail = softmax_pred_var * -torch.log(softmax_pred_var + 1e-9)
 
-        print(softmax_pred_var *)
+        gate_loss = criterion(pred_var, min_loss_idx[:, 0]).mean() - lam * entropy_detail.sum(1).mean()
 
-        exit(0)
         _, max_pred_idx = pred_var.topk(1, 1, True, True)
 
         gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
