@@ -296,6 +296,8 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
 def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch):
     model_num = len(models)
 
+    for model in models:
+        model.eval()
     gate.train()
 
     losses = []
@@ -312,7 +314,7 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
 
         pred_var = gate(input_var)
         sofmax_pred_var = F.softmax(pred_var, dim=1)
-        if ix % 100 == 0 and epoch % 10 == 0:
+        if ix % 500 == 0 and epoch % 30 == 0:
             print(pred_var)
             print(sofmax_pred_var)
 
@@ -329,7 +331,7 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
             # losses[i].update(f_loss.mean().data[0], input.size(0))
 
         models_pred = torch.cat(models_pred, dim=1)
-        _, max_confident_idx = models_pred.topk(3, 1, True, True)
+        _, max_confident_idx = models_pred.topk(5, 1, True, True)
 
         min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
 
