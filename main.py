@@ -398,7 +398,7 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
 
         correct_cnt = None
         for j in range(3):
-            tmp = min_loss_idx[:, 0].data == max_pred_idx[:, 0].data
+            tmp = min_loss_idx[:, j].data == max_pred_idx[:, 0].data
             if j == 0:
                 correct_cnt = tmp
             else:
