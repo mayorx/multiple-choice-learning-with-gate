@@ -41,6 +41,7 @@ def main():
     global args, best_prec
     args = parser.parse_args()
     use_gpu = torch.cuda.is_available()
+    # torch.set_printoptions(precision=10)
 
     # Model building
     print('=> Building model...')
@@ -306,7 +307,7 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
 
     gate_pred_correct = 0
 
-    lam = 1.0
+    # lam = 1.0
 
     for ix, (input, target) in enumerate(trainloader):
         input, target = input.cuda(), target.cuda()
@@ -314,21 +315,30 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
         target_var = Variable(target)
 
         pred_var = gate(input_var)
-        softmax_pred_var = F.softmax(pred_var, dim=1)
+        # softmax_pred_var = F.softmax(pred_var, dim=1)
+
         losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
+        score = []
+        # score2 = []
 
         for i in range(model_num):
             output = models[i](input_var)
+            # score2.append(torch.gather(F.softmax(output, dim=1), dim=1, index=target_var.view(-1, 1)))
+            score.append(torch.gather(output, dim=1, index=target_var.view(-1, 1)))
             losses_detail_var[:, i] = criterion(output, target_var)
             prec = accuracy(output.data, target)[0]
             top1[i].update(prec[0], input.size(0))
             # losses[i].update(f_loss.mean().data[0], input.size(0))
 
+        score = torch.cat(score, dim=1)
+
+        gate_loss = F.kl_div(F.log_softmax(pred_var, dim=1), F.softmax(score, dim=1).detach())
+
         min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
 
-        entropy_detail = softmax_pred_var * -torch.log(softmax_pred_var + 1e-9)
+        # entropy_detail = softmax_pred_var * -torch.log(softmax_pred_var + 1e-9)
 
-        gate_loss = criterion(pred_var, min_loss_idx[:, 0]).mean() - lam * entropy_detail.sum(1).mean()
+        # gate_loss = criterion(pred_var, min_loss_idx[:, 0]).mean()  # - lam * entropy_detail.sum(1).mean()
 
         _, max_pred_idx = pred_var.topk(1, 1, True, True)
 
