@@ -336,6 +336,11 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
 
         min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
 
+        if epoch % 10 == 0 and ix % 300 == 0:
+            print(losses_detail_var)
+            print(F.softmax(pred_var, dim=1))
+            print(F.softmax(score, dim=1))
+
         # entropy_detail = softmax_pred_var * -torch.log(softmax_pred_var + 1e-9)
 
         # gate_loss = criterion(pred_var, min_loss_idx[:, 0]).mean()  # - lam * entropy_detail.sum(1).mean()
@@ -369,7 +374,7 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
 
     total_top1 = AverageMeter()
 
-    gate_pred_correct = 0
+    gate_pred_correct = [0, 0, 0, 0, 0]
 
     correct_classes = torch.zeros(model_num, num_classes)
     total_classes = torch.zeros(num_classes)
@@ -410,18 +415,17 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
         prec = accuracy(final_predicts.data, target)[0]
         total_top1.update(prec[0], input.size(0))
 
-        topk = 3
-        _, min_loss_idx = losses_detail_var.topk(topk, 1, False, True)
+        _, min_loss_idx = losses_detail_var.topk(model_num, 1, False, True)
         _, max_pred_idx = pred_var.topk(1, 1, True, True)
 
         correct_cnt = None
-        for j in range(topk):
+        for j in range(model_num):
             tmp = min_loss_idx[:, j].data == max_pred_idx[:, 0].data
             if j == 0:
                 correct_cnt = tmp
             else:
                 correct_cnt = correct_cnt | tmp
-        gate_pred_correct += correct_cnt.sum()
+            gate_pred_correct[j] += correct_cnt.sum()
 
         #gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
 
@@ -430,7 +434,15 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
         print('model {0}\t Test: Loss {loss.avg:.4f} ,Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
 
     print('mixture of experts result: Prec {top1.avg:.3f}%'.format(top1=total_top1))
-    print('gate predict correct Test {}/{} {:.2f}%\n\n'.format(gate_pred_correct, len(val_loader.dataset),100. * gate_pred_correct / len(val_loader.dataset)))
+    for j in range(model_num):
+        print('gate predict correct (gate 1..{}) Test {}/{} {:.2f}%, delta {}'.format(
+            j + 1,
+            gate_pred_correct[j],
+            len(val_loader.dataset),
+            100. * gate_pred_correct[j] / len(val_loader.dataset)),
+            gate_pred_correct[0] if j == 0 else gate_pred_correct[j] - gate_pred_correct[j-1]
+        )
+    print('\n')
 
     if verbose:
         print('verbose result:')
