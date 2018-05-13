@@ -435,12 +435,12 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
 
     print('mixture of experts result: Prec {top1.avg:.3f}%'.format(top1=total_top1))
     for j in range(model_num):
-        print('gate predict correct (gate 1..{}) Test {}/{} {:.2f}%, delta {}'.format(
+        print('gate predict correct (gate 1..{}) Test {}/{} {:.2f}%, delta {:.2f}'.format(
             j + 1,
             gate_pred_correct[j],
             len(val_loader.dataset),
-            100. * gate_pred_correct[j] / len(val_loader.dataset)),
-            gate_pred_correct[0] if j == 0 else gate_pred_correct[j] - gate_pred_correct[j-1]
+            100. * gate_pred_correct[j] / len(val_loader.dataset),
+            100. * gate_pred_correct[0] / len(val_loader.dataset)  if j == 0 else 100. * (gate_pred_correct[j] - gate_pred_correct[j-1]) / len(val_loader.dataset))
         )
     print('\n')
 
