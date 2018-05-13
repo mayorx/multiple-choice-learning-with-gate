@@ -37,9 +37,10 @@ best_prec = 0
 now_learning_rate = 0
 ckpt_iter = 50
 test_batch_size = 100
+test_shuffle = False
 
 def main():
-    global args, best_prec, test_batch_size
+    global args, best_prec, test_batch_size, test_shuffle
     args = parser.parse_args()
     use_gpu = torch.cuda.is_available()
     torch.set_printoptions(precision=10)
@@ -144,7 +145,7 @@ def main():
                 transforms.ToTensor(),
                 normalize,
             ]))
-        testloader = torch.utils.data.DataLoader(test_dataset, batch_size=test_batch_size, shuffle=False, num_workers=2)
+        testloader = torch.utils.data.DataLoader(test_dataset, batch_size=test_batch_size, shuffle=test_shuffle, num_workers=2)
     # CIFAR100
     else:
         print('=> loading cifar100 data...')
@@ -170,7 +171,7 @@ def main():
                 transforms.ToTensor(),
                 normalize,
             ]))
-        testloader = torch.utils.data.DataLoader(test_dataset, batch_size=test_batch_size, shuffle=False, num_workers=2)
+        testloader = torch.utils.data.DataLoader(test_dataset, batch_size=test_batch_size, shuffle=test_shuffle, num_workers=2)
 
     if args.evaluate:
         validate(testloader, models, gate, criterion, args.cifar_type, verbose=True)
@@ -389,10 +390,10 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
                 _, max_pred_idx = output.topk(1, 1, True, True)
                 for j in range(len(max_pred_idx)):
                     correct_classes[idx][target[j]] += target[j] == max_pred_idx.data[j][0]
-            tmp_predicts = F.softmax(output, dim=1) * pred_var[:, idx].contiguous().view(-1,1)
+            # tmp_predicts = F.softmax(output, dim=1) * pred_var[:, idx].contiguous().view(-1,1)
+            tmp_predicts = F.softmax(output, dim=1) * ((max_pred_idx_ans == idx).sum(dim=1)>0).float().view(-1, 1)
             tmp_predicts2 = F.softmax(output, dim=1)
             # tmp_predicts = F.softmax(output, dim=1) #* pred_var[:, idx].contiguous().view(-1,1)
-            # tmp_predicts = tmp_predicts * ((max_pred_idx_ans == idx).sum(dim=1)>0).float()
             # tmp_predicts = output * pred_var[:, idx].contiguous().view(-1,1)
             if idx == 0:
                 final_predicts = tmp_predicts
