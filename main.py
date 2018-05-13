@@ -36,11 +36,13 @@ parser.add_argument('--name', default='anonymous', type=str, metavar='NAME', hel
 best_prec = 0
 now_learning_rate = 0
 ckpt_iter = 50
+test_batch_size = 100
 
 def main():
-    global args, best_prec
+    global args, best_prec, test_batch_size
     args = parser.parse_args()
     use_gpu = torch.cuda.is_available()
+    torch.set_printoptions(precision=10)
 
     # Model building
     print('=> Building model...')
@@ -142,7 +144,7 @@ def main():
                 transforms.ToTensor(),
                 normalize,
             ]))
-        testloader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False, num_workers=2)
+        testloader = torch.utils.data.DataLoader(test_dataset, batch_size=test_batch_size, shuffle=False, num_workers=2)
     # CIFAR100
     else:
         print('=> loading cifar100 data...')
@@ -168,7 +170,7 @@ def main():
                 transforms.ToTensor(),
                 normalize,
             ]))
-        testloader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False, num_workers=2)
+        testloader = torch.utils.data.DataLoader(test_dataset, batch_size=test_batch_size, shuffle=False, num_workers=2)
 
     if args.evaluate:
         validate(testloader, models, gate, criterion, args.cifar_type, verbose=True)
@@ -352,10 +354,9 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
 
     total_top1 = AverageMeter()
 
-    gate_pred_correct = 0
-
     correct_classes = torch.zeros(model_num, num_classes)
     total_classes = torch.zeros(num_classes)
+    gate_pred_correct = torch.zeros([model_num, model_num])
 
     for i, (input, target) in enumerate(val_loader):
         input, target = input.cuda(), target.cuda()
@@ -367,9 +368,14 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
 
         # compute output
         pred_var = F.softmax(gate(input_var), dim=1)
-        losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
+        losses_detail_var = Variable(torch.zeros([input.size(0), model_num])).cuda()
+
 
         final_predicts = None
+        final_predicts2 = None
+
+        _, max_pred_idx_ans = pred_var.topk(1, 1, True, True)
+
         for idx in range(model_num):
             output = models[idx](input_var)
 
@@ -383,28 +389,51 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
                 _, max_pred_idx = output.topk(1, 1, True, True)
                 for j in range(len(max_pred_idx)):
                     correct_classes[idx][target[j]] += target[j] == max_pred_idx.data[j][0]
-
             tmp_predicts = F.softmax(output, dim=1) * pred_var[:, idx].contiguous().view(-1,1)
+            tmp_predicts2 = F.softmax(output, dim=1)
+            # tmp_predicts = F.softmax(output, dim=1) #* pred_var[:, idx].contiguous().view(-1,1)
+            # tmp_predicts = tmp_predicts * ((max_pred_idx_ans == idx).sum(dim=1)>0).float()
+            # tmp_predicts = output * pred_var[:, idx].contiguous().view(-1,1)
             if idx == 0:
                 final_predicts = tmp_predicts
+                final_predicts2 = tmp_predicts2
             else:
                 final_predicts+= tmp_predicts
+                final_predicts2 += tmp_predicts2
+
+        print(pred_var)
+        print(losses_detail_var)
+        # print(final_predicts.max(dim=1)[1].data)
+        # print(target)
+        ans = []
+        ans.append(final_predicts.max(dim=1)[1].data.unsqueeze(1))
+        ans.append(final_predicts2.max(dim=1)[1].data.unsqueeze(1))
+        ans.append(target.unsqueeze(1))
+        ans.append((final_predicts.max(dim=1)[1].data ==target).long().unsqueeze(1))
+        ans.append((final_predicts2.max(dim=1)[1].data ==target).long().unsqueeze(1))
+
+        ans = torch.cat(ans, dim=1)
+        print(ans)
+        print((final_predicts.max(dim=1)[1].data == target).sum())
+        print((final_predicts2.max(dim=1)[1].data == target).sum())
+
+        exit(0)
 
         prec = accuracy(final_predicts.data, target)[0]
         total_top1.update(prec[0], input.size(0))
 
-        topk = 3
-        _, min_loss_idx = losses_detail_var.topk(topk, 1, False, True)
-        _, max_pred_idx = pred_var.topk(1, 1, True, True)
+        _, min_loss_idx = losses_detail_var.topk(model_num, 1, False, True)
+        _, max_pred_idx = pred_var.topk(model_num, 1, True, True)
 
-        correct_cnt = None
-        for j in range(topk):
-            tmp = min_loss_idx[:, j].data == max_pred_idx[:, 0].data
-            if j == 0:
-                correct_cnt = tmp
-            else:
-                correct_cnt = correct_cnt | tmp
-        gate_pred_correct += correct_cnt.sum()
+        for k in range(model_num):
+            correct_cnt = None
+            for j in range(model_num):
+                tmp = min_loss_idx[:, j].data == max_pred_idx[:, k].data
+                if j == 0:
+                    correct_cnt = tmp
+                else:
+                    correct_cnt = correct_cnt | tmp
+                gate_pred_correct[k][j] += correct_cnt.sum()
         # gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
 
 
@@ -412,7 +441,20 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
         print('model {0}\t Test: Loss {loss.avg:.4f} ,Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
 
     print('mixture of experts result: Prec {top1.avg:.3f}%'.format(top1=total_top1))
-    print('gate predict correct Test {}/{} {:.2f}%\n\n'.format(gate_pred_correct, len(val_loader.dataset),100. * gate_pred_correct / len(val_loader.dataset)))
+    # print('gate predict correct Test {}/{} {:.2f}%\n\n'.format(gate_pred_correct, len(val_loader.dataset),100. * gate_pred_correct / len(val_loader.dataset)))
+
+    for k in range(model_num):
+        for j in range(model_num):
+            print('gate predict correct (kth: {}, gate 1..{}) Test {}/{} {:.2f}%, delta {:.2f}'.format(
+                k + 1,
+                j + 1,
+                gate_pred_correct[k][j],
+                len(val_loader.dataset),
+                100. * gate_pred_correct[k][j] / len(val_loader.dataset),
+                100. * gate_pred_correct[k][0] / len(val_loader.dataset) if j == 0 else 100. * (
+                            gate_pred_correct[k][j] - gate_pred_correct[k][j - 1]) / len(val_loader.dataset)
+            ))
+        print('\n')
 
     if verbose:
         print('verbose result:')

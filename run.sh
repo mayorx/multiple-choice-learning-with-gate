@@ -7,4 +7,15 @@
 #CUDA_VISIBLE_DEVICES=1 python main.py --epoch 200 --batch-size 128 --lr 0.1 --momentum 0.9 --wd 5e-4 -ct 100 --model-num 5 --gate-type 3 --name mcl-twostep-4 --evaluate --resume result/dcl-cifar-100-mn-5-gt-3-cmcl-gateonly-regular-entropy15/checkpoint.pth
 #CUDA_VISIBLE_DEVICES=1 python main.py --epoch 200 --batch-size 128 --lr 0.1 --momentum 0.9 --wd 5e-4 -ct 100 --model-num 5 --gate-type 3 --name mcl-twostep-4 --evaluate --resume result/dcl-cifar-100-mn-5-gt-3-mcl-twostep-penalty-neg-overconfident-bugfix-penaltynum-2/checkpoint.pth
 
-CUDA_VISIBLE_DEVICES=1 python main.py --epoch 200 --batch-size 128 --lr 0.1 --momentum 0.9 --wd 5e-4 -ct 100 --model-num 5 --gate-type 3 --name mcl-twostep-4 --evaluate --resume result/dcl-cifar-100-mn-5-gt-3-mcl-twostep-4/checkpoint.pth
+#CUDA_VISIBLE_DEVICES=1 python main.py --epoch 200 --batch-size 128 --lr 0.1 --momentum 0.9 --wd 5e-4 -ct 100 --model-num 5 --gate-type 3 --name mcl-twostep-4 --evaluate --resume result/dcl-cifar-100-mn-5-gt-3-mcl-twostep-4/checkpoint.pth
+
+#mcl overlap 3
+CUDA_VISIBLE_DEVICES=1 python main.py --epoch 200 --batch-size 128 --lr 0.1 --momentum 0.9 --wd 5e-4 -ct 100 --model-num 5 --gate-type 3 --name mcl-twostep-4 --evaluate --resume result/dcl-cifar-100-mn-5-gt-3-mcl-overlap3-2/checkpoint.pth
+
+#ie
+#CUDA_VISIBLE_DEVICES=1 python main.py --epoch 200 --batch-size 128 --lr 0.1 --momentum 0.9 --wd 5e-4 -ct 100 --model-num 5 --gate-type 3 --name mcl-twostep-4 --evaluate --resume result/dcl-cifar-100-mn-5-gt-3-ie-kl/checkpoint.pth
+
+#cmcl overlap 3
+#CUDA_VISIBLE_DEVICES=1 python main.py --epoch 200 --batch-size 128 --lr 0.1 --momentum 0.9 --wd 5e-4 -ct 100 --model-num 5 --gate-type 3 --name mcl-twostep-4 --evaluate --resume result/dcl-cifar-100-mn-5-gt-3-cmcl-overlap3-1/checkpoint.pth
+
+
