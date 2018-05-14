@@ -197,27 +197,27 @@ def main():
         best_prec = max(prec, best_prec)
         save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir)
 
-    start_time = time.time()
-    for epoch in range(args.start_epoch, args.epochs):
-        adjust_learning_rate(gate_optimizer, epoch)
-
-        print('Epoch: Training Gate {0}\t LR = {lr:.4f}'.format(epoch, lr=now_learning_rate))
-        # train for one epoch
-        train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
-
-        # evaluate on test set
-        prec = validate(testloader, models, gate, criterion, args.cifar_type)
-
-        end_time = time.time()
-        passed_time = end_time - start_time
-        estimated_extra_time = passed_time * (args.epochs - epoch) / (epoch - args.start_epoch + 1)
-        print('time flies very fast .. {passed_time:.2f} mins passed, about {extra:.2f} mins left... step 2'.format(
-            passed_time=passed_time / 60, extra=estimated_extra_time / 60))
-
-        # remember best precision and save checkpoint
-        is_best = prec > best_prec
-        best_prec = max(prec, best_prec)
-        save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir, True)
+    # start_time = time.time()
+    # for epoch in range(args.start_epoch, args.epochs):
+    #     adjust_learning_rate(gate_optimizer, epoch)
+    #
+    #     print('Epoch: Training Gate {0}\t LR = {lr:.4f}'.format(epoch, lr=now_learning_rate))
+    #     # train for one epoch
+    #     train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
+    #
+    #     # evaluate on test set
+    #     prec = validate(testloader, models, gate, criterion, args.cifar_type)
+    #
+    #     end_time = time.time()
+    #     passed_time = end_time - start_time
+    #     estimated_extra_time = passed_time * (args.epochs - epoch) / (epoch - args.start_epoch + 1)
+    #     print('time flies very fast .. {passed_time:.2f} mins passed, about {extra:.2f} mins left... step 2'.format(
+    #         passed_time=passed_time / 60, extra=estimated_extra_time / 60))
+    #
+    #     # remember best precision and save checkpoint
+    #     is_best = prec > best_prec
+    #     best_prec = max(prec, best_prec)
+    #     save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir, True)
 
     print('finished. best_prec: {:.4f}'.format(best_prec))
 
@@ -253,7 +253,7 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         losses.append(AverageMeter())
         top1.append(AverageMeter())
 
-    cnt = [0, 0, 0, 0, 0]
+    gamma = 2
     for ix, (input, target) in enumerate(trainloader):
         input, target = input.cuda(), target.cuda()
         input_var = Variable(input)
@@ -263,24 +263,20 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
 
         losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
 
+        pred_experts_var = []
         for i in range(model_num):
             output = models[i](input_var)
+            pred_experts_var.append(torch.gather(F.softmax(output, dim=1), dim=1, index=target_var.view(-1, 1)))
             losses_detail_var[:, i] = criterion(output, target_var)
             prec = accuracy(output.data, target)[0]
             top1[i].update(prec[0], input.size(0))
+        pred_experts_var = torch.cat(pred_experts_var, dim=1)
 
-        min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
-        experts_loss = min_loss_value.mean()
+        min_loss_value, min_loss_idx = losses_detail_var.topk(3, 1, False, True)
+        choosed_pred_experts_var = torch.gather(pred_experts_var, dim=1, index=min_loss_idx)
 
-        _, max_pred_idx = pred_var.topk(1, 1, True, True)
-        # print(max_pred_idx)
-        if epoch % 10 == 0:
-            #bias of gate
-            for gate_pred_idx in max_pred_idx.data[:,0]:
-                cnt[gate_pred_idx] = cnt[gate_pred_idx]+1
-            if ix % 200 == 0:
-                print(cnt)
-
+        # experts_loss = min_loss_value.mean()
+        experts_loss = (torch.pow(1 - choosed_pred_experts_var, gamma).detach() * min_loss_value).mean()
 
         for i in range(model_num):
             optimizers[i].zero_grad()
