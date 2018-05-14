@@ -470,7 +470,7 @@ def save_checkpoint(epoch, model_num, models, optimizers, gate, gate_optimizer, 
         addition = addition + '-epoch-{}'.format(epoch)
         if isGate:
             addition = addition + '-Gate'
-    filepath = os.path.join(fdir, 'checkpoint{}.pth'.format('-epoch-{}'.format(epoch) if epoch % ckpt_iter == 0 else ''))
+    filepath = os.path.join(fdir, 'checkpoint{}.pth'.format('-epoch-{}'.format(addition)))
     state = {
         'epoch' : epoch + 1,
         'model_num': model_num,
