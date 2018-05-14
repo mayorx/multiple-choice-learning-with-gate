@@ -41,7 +41,7 @@ def main():
     global args, best_prec
     args = parser.parse_args()
     use_gpu = torch.cuda.is_available()
-    # torch.set_printoptions(precision=10)
+    # torch.set_printoptions(precision=5)
 
     # Model building
     print('=> Building model...')
@@ -332,11 +332,18 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
 
         score = torch.cat(score, dim=1)
 
-        gate_loss = F.kl_div(F.log_softmax(pred_var, dim=1), F.softmax(score, dim=1).detach())
+        _, score_rank_idx = score.topk(3, 1, True, True)
+
+        universe_pred = torch.zeros([input.size(0), model_num]).cuda()
+        universe_pred.scatter_(1, score_rank_idx[:, 0].data.unsqueeze(1), 0.7)
+        universe_pred.scatter_(1, score_rank_idx[:, 1].data.unsqueeze(1), 0.2)
+        universe_pred.scatter_(1, score_rank_idx[:, 2].data.unsqueeze(1), 0.1)
+
+        gate_loss = F.kl_div(F.log_softmax(pred_var, dim=1), Variable(universe_pred, requires_grad=False))
 
         min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
 
-        if epoch % 10 == 0 and ix % 300 == 0:
+        if epoch % 10 == 0 and (ix+1) % 300 == 0:
             print(losses_detail_var)
             print(F.softmax(pred_var, dim=1))
             print(F.softmax(score, dim=1))
