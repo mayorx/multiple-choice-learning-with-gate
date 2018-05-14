@@ -185,8 +185,9 @@ def main():
         # train for one epoch
         train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
 
+        verbose = True if (epoch+1) % 20 == 0 else False
         # evaluate on test set
-        prec = validate(testloader, models, gate, criterion, args.cifar_type)
+        prec = validate(testloader, models, gate, criterion, args.cifar_type, verbose)
 
         end_time = time.time()
         passed_time = end_time - start_time
@@ -276,7 +277,7 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         choosed_pred_experts_var = torch.gather(pred_experts_var, dim=1, index=min_loss_idx)
 
         # experts_loss = min_loss_value.mean()
-        experts_loss = (torch.pow(1 - choosed_pred_experts_var, gamma).detach() * min_loss_value).mean()
+        experts_loss = (torch.pow(1 - choosed_pred_experts_var, gamma) * min_loss_value).mean()
 
         for i in range(model_num):
             optimizers[i].zero_grad()
@@ -362,8 +363,8 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
                 total_classes[t] += 1
 
         # compute output
-        pred_var = F.softmax(gate(input_var), dim=1)
-        losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
+        # pred_var = F.softmax(gate(input_var), dim=1)
+        losses_detail_var = Variable(torch.zeros([input.size(0), model_num])).cuda()
 
         final_predicts = None
         for idx in range(model_num):
@@ -380,7 +381,7 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
                 for j in range(len(max_pred_idx)):
                     correct_classes[idx][target[j]] += target[j] == max_pred_idx.data[j][0]
 
-            tmp_predicts = F.softmax(output, dim=1) * pred_var[:, idx].contiguous().view(-1,1)
+            tmp_predicts = F.softmax(output, dim=1) #* pred_var[:, idx].contiguous().view(-1,1)
             if idx == 0:
                 final_predicts = tmp_predicts
             else:
@@ -390,15 +391,15 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
         total_top1.update(prec[0], input.size(0))
 
         _, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
-        _, max_pred_idx = pred_var.topk(1, 1, True, True)
-        gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
+        # _, max_pred_idx = pred_var.topk(1, 1, True, True)
+        # gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
 
 
     for idx in range(model_num):
         print('model {0}\t Test: Loss {loss.avg:.4f} ,Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
 
     print('mixture of experts result: Prec {top1.avg:.3f}%'.format(top1=total_top1))
-    print('gate predict correct Test {}/{} {:.2f}%\n\n'.format(gate_pred_correct, len(val_loader.dataset),100. * gate_pred_correct / len(val_loader.dataset)))
+    # print('gate predict correct Test {}/{} {:.2f}%\n\n'.format(gate_pred_correct, len(val_loader.dataset),100. * gate_pred_correct / len(val_loader.dataset)))
 
     if verbose:
         print('verbose result:')
