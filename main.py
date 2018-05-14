@@ -342,12 +342,14 @@ def train_together(trainloader, criterion, models, optimizers, gates, gate_optim
             tmp = torch.log(F.softmax(score, dim=1)) * F.softmax(score, dim=1) - torch.log(F.softmax(pred_var, dim=1)) * F.softmax(score, dim=1)
             print(tmp.sum(dim=1))
 
-        gate_loss = F.kl_div(F.log_softmax(pred_var, dim=1), F.softmax(score, dim=1).detach(), reduce=False).sum(dim=1).mean()
+        gate_loss = F.kl_div(F.log_softmax(pred_var + 1e-9, dim=1), F.softmax(score, dim=1).detach(), reduce=False).sum(dim=1).mean()
         _, max_pred_idx = pred_var.topk(1, 1, True, True)
 
         gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
 
         loss = experts_loss + gate_loss
+        if ix % 500 == 0:
+            print(experts_loss, gate_loss)
 
         for opti in optimizers:
             opti.zero_grad()
