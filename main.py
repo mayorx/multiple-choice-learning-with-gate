@@ -375,7 +375,7 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
         final_predicts = None
         final_predicts2 = None
 
-        _, max_pred_idx_ans = pred_var.topk(1, 1, True, True)
+        _, max_pred_idx_ans = pred_var.topk(3, 1, True, True)
 
         for idx in range(model_num):
             output = models[idx](input_var)
@@ -402,8 +402,8 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
                 final_predicts+= tmp_predicts
                 final_predicts2 += tmp_predicts2
 
-        print(pred_var)
-        print(losses_detail_var)
+        # print(pred_var)
+        # print(losses_detail_var)
         # print(final_predicts.max(dim=1)[1].data)
         # print(target)
         ans = []
@@ -414,10 +414,10 @@ def validate(val_loader, models, gate, criterion, num_classes, verbose=False):
         ans.append((final_predicts2.max(dim=1)[1].data ==target).long().unsqueeze(1))
 
         ans = torch.cat(ans, dim=1)
-        print(ans)
+        # print(ans)
         print((final_predicts.max(dim=1)[1].data == target).sum())
         print((final_predicts2.max(dim=1)[1].data == target).sum())
-
+        #
         exit(0)
 
         prec = accuracy(final_predicts.data, target)[0]
