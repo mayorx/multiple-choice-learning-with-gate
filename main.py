@@ -318,23 +318,31 @@ def train_together(trainloader, criterion, models, optimizers, gates, gate_optim
 
         losses_detail_var = Variable(torch.zeros([input.size(0), model_num])).cuda()
         pred_var = []
-
+        score = []
         for i in range(model_num):
             conv_output, output = models[i](input_var)
             gate_output = gates[i](conv_output)
 
             pred_var.append(gate_output)
+            score.append(torch.gather(output, dim=1, index=target_var.view(-1, 1)))
 
             losses_detail_var[:, i] = criterion(output, target_var)
             prec = accuracy(output.data, target)[0]
             top1[i].update(prec[0], input.size(0))
 
         pred_var = torch.cat(pred_var, dim=1)
+        score = torch.cat(score, dim=1)
 
-        min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
+        min_loss_value, min_loss_idx = losses_detail_var.topk(3, 1, False, True)
         experts_loss = min_loss_value.mean()
 
-        gate_loss = criterion(pred_var, min_loss_idx[:, 0]).mean()
+        if (epoch + 1) % 30 == 0:
+            print(F.softmax(pred_var, dim=1), F.softmax(score, dim=1))
+            print(min_loss_value)
+            tmp = torch.log(F.softmax(score, dim=1)) * F.softmax(score, dim=1) - torch.log(F.softmax(pred_var, dim=1)) * F.softmax(score, dim=1)
+            print(tmp.sum(dim=1))
+
+        gate_loss = F.kl_div(F.log_softmax(pred_var, dim=1), F.softmax(score, dim=1).detach(), reduce=False).sum(dim=1).mean()
         _, max_pred_idx = pred_var.topk(1, 1, True, True)
 
         gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
