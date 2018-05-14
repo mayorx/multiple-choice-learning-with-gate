@@ -197,27 +197,27 @@ def main():
         best_prec = max(prec, best_prec)
         save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir)
 
-    start_time = time.time()
-    for epoch in range(args.start_epoch, args.epochs):
-        adjust_learning_rate(gate_optimizer, epoch)
-
-        print('Epoch: Training Gate {0}\t LR = {lr:.4f}'.format(epoch, lr=now_learning_rate))
-        # train for one epoch
-        train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
-
-        # evaluate on test set
-        prec = validate(testloader, models, gate, criterion, args.cifar_type)
-
-        end_time = time.time()
-        passed_time = end_time - start_time
-        estimated_extra_time = passed_time * (args.epochs - epoch) / (epoch - args.start_epoch + 1)
-        print('time flies very fast .. {passed_time:.2f} mins passed, about {extra:.2f} mins left... step 2'.format(
-            passed_time=passed_time / 60, extra=estimated_extra_time / 60))
-
-        # remember best precision and save checkpoint
-        is_best = prec > best_prec
-        best_prec = max(prec, best_prec)
-        save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir, True)
+    # start_time = time.time()
+    # for epoch in range(args.start_epoch, args.epochs):
+    #     adjust_learning_rate(gate_optimizer, epoch)
+    #
+    #     print('Epoch: Training Gate {0}\t LR = {lr:.4f}'.format(epoch, lr=now_learning_rate))
+    #     # train for one epoch
+    #     train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
+    #
+    #     # evaluate on test set
+    #     prec = validate(testloader, models, gate, criterion, args.cifar_type)
+    #
+    #     end_time = time.time()
+    #     passed_time = end_time - start_time
+    #     estimated_extra_time = passed_time * (args.epochs - epoch) / (epoch - args.start_epoch + 1)
+    #     print('time flies very fast .. {passed_time:.2f} mins passed, about {extra:.2f} mins left... step 2'.format(
+    #         passed_time=passed_time / 60, extra=estimated_extra_time / 60))
+    #
+    #     # remember best precision and save checkpoint
+    #     is_best = prec > best_prec
+    #     best_prec = max(prec, best_prec)
+    #     save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir, True)
 
     print('finished. best_prec: {:.4f}'.format(best_prec))
 
@@ -268,7 +268,7 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
             prec = accuracy(output.data, target)[0]
             top1[i].update(prec[0], input.size(0))
 
-        min_loss_value, min_loss_idx = losses_detail_var.topk(3, 1, False, True)
+        min_loss_value, min_loss_idx = losses_detail_var.topk(2, 1, False, True)
         experts_loss = min_loss_value.sum(dim=1).mean()
 
         for i in range(model_num):
