@@ -335,9 +335,9 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
         _, score_rank_idx = score.topk(3, 1, True, True)
 
         universe_pred = torch.zeros([input.size(0), model_num]).cuda()
-        universe_pred.scatter_(1, score_rank_idx[:, 0].data.unsqueeze(1), 0.7)
+        universe_pred.scatter_(1, score_rank_idx[:, 0].data.unsqueeze(1), 0.75)
         universe_pred.scatter_(1, score_rank_idx[:, 1].data.unsqueeze(1), 0.2)
-        universe_pred.scatter_(1, score_rank_idx[:, 2].data.unsqueeze(1), 0.1)
+        universe_pred.scatter_(1, score_rank_idx[:, 2].data.unsqueeze(1), 0.05)
 
         gate_loss = F.kl_div(F.log_softmax(pred_var, dim=1), Variable(universe_pred, requires_grad=False))
 
