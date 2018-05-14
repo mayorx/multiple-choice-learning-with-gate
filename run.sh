@@ -20,3 +20,6 @@
 
 #mcl overlap 2
 #CUDA_VISIBLE_DEVICES=1 python main.py --epoch 200 --batch-size 128 --lr 0.1 --momentum 0.9 --wd 5e-4 -ct 100 --model-num 5 --gate-type 3 --name mcl-twostep-4 --evaluate --resume result/dcl-cifar-100-mn-5-gt-3-mcl-overlap-2/checkpoint.pth
+
+#mcl overlap3 fixed-uni
+CUDA_VISIBLE_DEVICES=1 python main.py --epoch 200 --batch-size 128 --lr 0.1 --momentum 0.9 --wd 5e-4 -ct 100 --model-num 5 --gate-type 3 --name unknown --evaluate --resume result/dcl-cifar-100-mn-5-gt-3-mcl-overlap3-fixed-uni/checkpoint.pth
