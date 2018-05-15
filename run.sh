@@ -24,5 +24,5 @@
 #mcl (regular)
 #CUDA_VISIBLE_DEVICES=0 python main.py --epoch 200 --batch-size 128 --lr 0.03 --momentum 0.9 --wd 5e-4 -ct 100 --model-num 5 --gate-type 3 --name mcl-regular-1 --resume result/dcl-cifar-100-mn-5-gt-3-mcl-twostep-penalty-neg-overconfident-bugfix-penaltynum-3/checkpoint-epoch-0.pth
 
-
-
+#mcl + overlap3 + focalloss
+CUDA_VISIBLE_DEVICES=2 python main.py --epoch 200 --batch-size 128 --lr 0.03 --momentum 0.9 --wd 5e-4 -ct 100 --model-num 5 --gate-type 3 --name mcl-overlap3-KL-focalloss --resume result/dcl-cifar-100-mn-5-gt-3-mcl-focal-loss-not-detach/checkpoint.pth

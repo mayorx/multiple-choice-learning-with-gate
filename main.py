@@ -336,7 +336,7 @@ def train_gate(trainloader, criterion, models, optimizers, gate, gate_optimizer,
 
         min_loss_value, min_loss_idx = losses_detail_var.topk(1, 1, False, True)
 
-        if epoch % 10 == 0 and ix % 300 == 0:
+        if epoch % 30 == 0 and ix % 300 == 0:
             print(losses_detail_var)
             print(F.softmax(pred_var, dim=1))
             print(F.softmax(score, dim=1))
@@ -481,14 +481,15 @@ def save_checkpoint(epoch, model_num, models, optimizers, gate, gate_optimizer, 
 
 def adjust_learning_rate(optimizer, epoch):
     global now_learning_rate
+    factor = 0.3
     if epoch < 60:
         lr = args.lr
     elif epoch < 120:
-        lr = args.lr * 0.3
+        lr = args.lr * factor
     elif epoch < 180:
-        lr = args.lr * 0.09
+        lr = args.lr * factor * factor
     else:
-        lr = args.lr * 0.027
+        lr = args.lr * factor * factor * factor
 
     # """For resnet, the lr starts from 0.1, and is divided by 10 at 80 and 120 epochs"""
     # if model_type == 1:
