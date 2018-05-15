@@ -5,3 +5,4 @@ from .densenet_cifar import *
 from .gatenet import *
 from .resnet import *
 from .vgg import *
+from .bagging import *

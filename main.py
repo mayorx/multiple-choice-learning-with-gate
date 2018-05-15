@@ -1,15 +1,9 @@
 import argparse
 import os
 import time
-import shutil
 
-import torch
-import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
-from torch.autograd import Variable
-
 
 import torchvision
 import torchvision.transforms as transforms
@@ -83,7 +77,8 @@ def main():
         models = []
         optimizers = []
         for i in range(0, args.model_num):
-            model = resnet32_cifar(num_classes=args.cifar_type)
+            # model = resnet32_cifar(num_classes=args.cifar_type)
+            model = resnet(depth=20, num_classes=args.cifar_type)
             model = nn.DataParallel(model).cuda()
             optimizer = optim.SGD(model.parameters(), args.lr, momentum=args.momentum, weight_decay=args.weight_decay,
                                   nesterov=True)
@@ -114,12 +109,13 @@ def main():
         else:
             print("=> no checkpoint found at '{}'".format(args.resume))
 
+    trainloaders = []
     # Data loading and preprocessing
     # CIFAR10
     if args.cifar_type == 10:
         print('=> loading cifar10 data...')
         # normalize = transforms.Normalize(mean=[0.491, 0.482, 0.447], std=[0.247, 0.243, 0.262])
-        normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        normalize = transforms.Normalize(mean=[0.4914, 0.4822, 0.4465], std=[0.2023, 0.1994, 0.2010])
 
         train_dataset = torchvision.datasets.CIFAR10(
             root='./data', 
@@ -131,7 +127,14 @@ def main():
                 transforms.ToTensor(),
                 normalize,
             ]))
-        trainloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=2)
+
+        # trainloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=2)
+
+
+        for i in range(model_num):
+            bagging_dataset = BagDataset(train_dataset)
+            trainloader = torch.utils.data.DataLoader(bagging_dataset, batch_size=args.batch_size, shuffle=True, num_workers=2)
+            trainloaders.append(trainloader)
 
         test_dataset = torchvision.datasets.CIFAR10(
             root='./data',
@@ -146,7 +149,7 @@ def main():
     else:
         print('=> loading cifar100 data...')
         #normalize = transforms.Normalize(mean=[0.507, 0.487, 0.441], std=[0.267, 0.256, 0.276])
-        normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        normalize = transforms.Normalize(mean=[0.4914, 0.4822, 0.4465], std=[0.2023, 0.1994, 0.2010])
         train_dataset = torchvision.datasets.CIFAR100(
             root='./data',
             train=True,
@@ -176,6 +179,7 @@ def main():
     print_important_args(args)
 
     start_time = time.time()
+
     for epoch in range(args.start_epoch, args.epochs):
         for opti in optimizers:
             adjust_learning_rate(opti, epoch)
@@ -183,7 +187,10 @@ def main():
 
         print('Epoch: {0}\t LR = {lr:.4f}'.format(epoch, lr=now_learning_rate))
         # train for one epoch
-        train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
+
+        for i in range(model_num):
+            train(trainloaders[i], criterion, models[i], optimizers[i], gate, gate_optimizer, epoch)
+        # train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
 
         # evaluate on test set
         prec = validate(testloader, models, gate, criterion)
@@ -222,55 +229,22 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch):
-    print(trainloader)
-    exit(0)
-    model_num = len(models)
-
-    for model in models:
-        model.train()
-
-    losses = []
-    top1 = []
-    for idx in range(model_num):
-        losses.append(AverageMeter())
-        top1.append(AverageMeter())
+def train(trainloader, criterion, model, optimizer, gate, gate_optimizer, epoch):
+    model.train()
 
     for ix, (input, target) in enumerate(trainloader):
         input, target = input.cuda(), target.cuda()
         input_var = Variable(input)
         target_var = Variable(target)
 
-        print(input)
-        print(target)
-        exit(0)
+        output = model(input_var)
 
-        # compute output
-        outputs = [None] * model_num
-        for idx in range(model_num):
-            outputs[idx] = models[idx](input_var)
+        loss = criterion(output, target_var).mean()
 
-        loss = 0
-        losses_detail = Variable(torch.zeros(len(target), model_num)).cuda()
-
-        for i in range(model_num):
-            f_loss = criterion(outputs[i], target_var)
-            loss = loss + f_loss.mean()
-            prec = accuracy(outputs[i].data, target)[0]
-            top1[i].update(prec[0], input.size(0))
-            losses[i].update(f_loss.mean().data[0], input.size(0))
-
-        _, min_loss_idx = losses_detail.topk(1, 1, False, True)
-
-        for i in range(model_num):
-            optimizers[i].zero_grad()
+        optimizer.zero_grad()
         loss.backward()
-        for i in range(model_num):
-            optimizers[i].step()
+        optimizer.step()
 
-    for idx in range(model_num):
-        # print(losses[idx].avg)
-        print('model {0}\t Train: Loss {loss.avg:.4f} Prec {top1.avg:.3f}%'.format(idx, loss=losses[idx], top1=top1[idx]))
 
 def validate(val_loader, models, gate, criterion):
     model_num = len(models)
