@@ -336,19 +336,18 @@ def train_together(trainloader, criterion, models, optimizers, gates, gate_optim
         min_loss_value, min_loss_idx = losses_detail_var.topk(3, 1, False, True)
         experts_loss = min_loss_value.mean()
 
-        if (epoch + 1) % 30 == 0:
-            print(F.softmax(pred_var, dim=1), F.softmax(score, dim=1))
-            print(min_loss_value)
-            tmp = torch.log(F.softmax(score, dim=1)) * F.softmax(score, dim=1) - torch.log(F.softmax(pred_var, dim=1)) * F.softmax(score, dim=1)
-            print(tmp.sum(dim=1))
-
         gate_loss = F.kl_div(F.log_softmax(pred_var + 1e-9, dim=1), F.softmax(score, dim=1).detach(), reduce=False).sum(dim=1).mean()
         _, max_pred_idx = pred_var.topk(1, 1, True, True)
 
         gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
 
         loss = experts_loss + gate_loss
-        if ix % 500 == 0:
+
+        if (epoch + 1) % 30 == 0 and ix % 500 == 0:
+            print(F.softmax(pred_var, dim=1), F.softmax(score, dim=1))
+            print(min_loss_value)
+            tmp = torch.log(F.softmax(score, dim=1)) * F.softmax(score, dim=1) - torch.log(F.softmax(pred_var, dim=1)) * F.softmax(score, dim=1)
+            print(tmp.sum(dim=1))
             print(experts_loss, gate_loss)
 
         for opti in optimizers:
@@ -497,11 +496,11 @@ def adjust_learning_rate(optimizer, epoch):
     if epoch < 60:
         lr = args.lr
     elif epoch < 120:
-        lr = args.lr * 0.3
+        lr = args.lr * 0.1
     elif epoch < 180:
-        lr = args.lr * 0.09
+        lr = args.lr * 0.01
     else:
-        lr = args.lr * 0.027
+        lr = args.lr * 0.001
 
     # """For resnet, the lr starts from 0.1, and is divided by 10 at 80 and 120 epochs"""
     # if model_type == 1:
