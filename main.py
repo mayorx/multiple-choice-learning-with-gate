@@ -334,7 +334,7 @@ def train_together(trainloader, criterion, models, optimizers, gates, gate_optim
         score = torch.cat(score, dim=1)
 
         min_loss_value, min_loss_idx = losses_detail_var.topk(3, 1, False, True)
-        experts_loss = min_loss_value.mean()
+        experts_loss = min_loss_value.sum(dim=1).mean()
 
         gate_loss = F.kl_div(F.log_softmax(pred_var + 1e-9, dim=1), F.softmax(score, dim=1).detach(), reduce=False).sum(dim=1).mean()
         _, max_pred_idx = pred_var.topk(1, 1, True, True)
@@ -343,7 +343,7 @@ def train_together(trainloader, criterion, models, optimizers, gates, gate_optim
 
         loss = experts_loss + gate_loss
 
-        if (epoch + 1) % 30 == 0 and ix % 500 == 0:
+        if epoch % 30 == 0 and ix % 500 == 0:
             print(F.softmax(pred_var, dim=1), F.softmax(score, dim=1))
             print(min_loss_value)
             tmp = torch.log(F.softmax(score, dim=1)) * F.softmax(score, dim=1) - torch.log(F.softmax(pred_var, dim=1)) * F.softmax(score, dim=1)
