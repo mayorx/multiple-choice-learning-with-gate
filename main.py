@@ -118,7 +118,8 @@ def main():
     # CIFAR10
     if args.cifar_type == 10:
         print('=> loading cifar10 data...')
-        normalize = transforms.Normalize(mean=[0.491, 0.482, 0.447], std=[0.247, 0.243, 0.262])
+        # normalize = transforms.Normalize(mean=[0.491, 0.482, 0.447], std=[0.247, 0.243, 0.262])
+        normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 
         train_dataset = torchvision.datasets.CIFAR10(
             root='./data', 
@@ -144,8 +145,8 @@ def main():
     # CIFAR100
     else:
         print('=> loading cifar100 data...')
-        normalize = transforms.Normalize(mean=[0.507, 0.487, 0.441], std=[0.267, 0.256, 0.276])
-
+        #normalize = transforms.Normalize(mean=[0.507, 0.487, 0.441], std=[0.267, 0.256, 0.276])
+        normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
         train_dataset = torchvision.datasets.CIFAR100(
             root='./data',
             train=True,
@@ -222,6 +223,8 @@ class AverageMeter(object):
 
 
 def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch):
+    print(trainloader)
+    exit(0)
     model_num = len(models)
 
     for model in models:
@@ -237,6 +240,10 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
         input, target = input.cuda(), target.cuda()
         input_var = Variable(input)
         target_var = Variable(target)
+
+        print(input)
+        print(target)
+        exit(0)
 
         # compute output
         outputs = [None] * model_num
