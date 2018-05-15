@@ -337,7 +337,7 @@ def train_together(trainloader, criterion, models, optimizers, gates, gate_optim
         # experts_loss = min_loss_value.mean()
         experts_loss = 0
 
-        if (epoch + 1) % 30 == 0:
+        if (epoch + 1) % 30 == 0 and ix % 500 == 0:
             print(F.softmax(pred_var, dim=1), F.softmax(score, dim=1))
             print(min_loss_value)
             tmp = torch.log(F.softmax(score, dim=1)) * F.softmax(score, dim=1) - torch.log(F.softmax(pred_var, dim=1)) * F.softmax(score, dim=1)
