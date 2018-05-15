@@ -300,8 +300,8 @@ def train_together(trainloader, criterion, models, optimizers, gates, gate_optim
     for gate in gates:
         gate.train()
 
-    # for model in models:
-    #     model.train()
+    for model in models:
+        model.eval()
 
     losses = []
     top1 = []
@@ -321,7 +321,7 @@ def train_together(trainloader, criterion, models, optimizers, gates, gate_optim
         score = []
         for i in range(model_num):
             conv_output, output = models[i](input_var)
-            gate_output = gates[i](conv_output)
+            gate_output = gates[i](conv_output.detach())
 
             pred_var.append(gate_output)
             score.append(torch.gather(output, dim=1, index=target_var.view(-1, 1)))
