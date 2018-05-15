@@ -82,7 +82,9 @@ def main():
         models = []
         optimizers = []
         for i in range(0, args.model_num):
-            model = resnet32_cifar(num_classes=args.cifar_type)
+            model = resnet(depth=20, num_classes=args.cifar_type)
+            # model = resnet32_cifar(num_classes=args.cifar_type)
+
             model = nn.DataParallel(model).cuda()
             optimizer = optim.SGD(model.parameters(), args.lr, momentum=args.momentum, weight_decay=args.weight_decay,
                                   nesterov=True)
@@ -114,11 +116,12 @@ def main():
     # CIFAR10
     if args.cifar_type == 10:
         print('=> loading cifar10 data...')
-        normalize = transforms.Normalize(mean=[0.491, 0.482, 0.447], std=[0.247, 0.243, 0.262])
+        # normalize = transforms.Normalize(mean=[0.491, 0.482, 0.447], std=[0.247, 0.243, 0.262])
+        normalize = transforms.Normalize(mean=[0.4914, 0.4822, 0.4465], std=[0.2023, 0.1994, 0.2010])
 
         train_dataset = torchvision.datasets.CIFAR10(
-            root='./data', 
-            train=True, 
+            root='./data',
+            train=True,
             download=True,
             transform=transforms.Compose([
                 transforms.RandomCrop(32, padding=4),
@@ -140,7 +143,9 @@ def main():
     # CIFAR100
     else:
         print('=> loading cifar100 data...')
-        normalize = transforms.Normalize(mean=[0.507, 0.487, 0.441], std=[0.267, 0.256, 0.276])
+        #normalize = transforms.Normalize(mean=[0.507, 0.487, 0.441], std=[0.267, 0.256, 0.276])
+        normalize = transforms.Normalize(mean=[0.4914, 0.4822, 0.4465], std=[0.2023, 0.1994, 0.2010])
+        # normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), [0.2023, 0.1994, 0.2010])
 
         train_dataset = torchvision.datasets.CIFAR100(
             root='./data',
@@ -220,7 +225,7 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
 
     for model in models:
         model.train()
-    gate.train()
+    # gate.train()
 
     losses = []
     top1 = []
@@ -253,9 +258,9 @@ def train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoc
 
         gate_pred_correct += (min_loss_idx.data == max_pred_idx.data).sum()
 
-        gate_optimizer.zero_grad()
-        gate_loss.backward()
-        gate_optimizer.step()
+        # gate_optimizer.zero_grad()
+        # gate_loss.backward()
+        # gate_optimizer.step()
 
         for i in range(model_num):
             optimizers[i].zero_grad()
@@ -292,7 +297,7 @@ def validate(val_loader, models, gate, criterion):
 
         # compute output
         pred_var = F.softmax(gate(input_var), dim=1)
-        losses_detail_var = Variable(torch.zeros(pred_var.shape)).cuda()
+        losses_detail_var = Variable(torch.zeros([input.size(0), model_num])).cuda()
 
         final_predicts = None
         for idx in range(model_num):
@@ -305,7 +310,7 @@ def validate(val_loader, models, gate, criterion):
             # losses[idx].update(loss.data[0], input.size(0))
             top1[idx].update(prec[0], input.size(0))
 
-            tmp_predicts = F.softmax(output, dim=1) * pred_var[:, idx].contiguous().view(-1,1)
+            # tmp_predicts = F.softmax(output, dim=1) * pred_var[:, idx].contiguous().view(-1,1)
             tmp_predicts = F.softmax(output, dim=1)
             if idx == 0:
                 final_predicts = tmp_predicts
@@ -398,6 +403,8 @@ def gate_factory(gate_type, model_num):
         return resnet32_cifar(num_classes=model_num) #regular output
     elif gate_type == 4:
         return GateNet(model_nums=model_num, sm=0) #regular output
+    elif gate_type == 10:
+        return resnet(depth=20, num_classes=model_num)
     else:
         raise('gate type not found :{}'.format(gate_type))
 
