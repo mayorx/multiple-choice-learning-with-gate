@@ -183,7 +183,7 @@ def main():
         testloader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False, num_workers=2)
 
     if args.evaluate:
-        validate(testloader, models, gate, criterion, args.cifar_type, verbose=True)
+        validate(testloader, models, gates, criterion, args.cifar_type, verbose=True)
         return
 
     print_important_args(args)
@@ -231,7 +231,7 @@ def main():
         # remember best precision and save checkpoint
         is_best = prec > best_prec
         best_prec = max(prec, best_prec)
-        # save_checkpoint(epoch, args.model_num, models, optimizers, gate, gate_optimizer, fdir)
+        save_checkpoint(epoch, args.model_num, models, optimizers, gates, gate_optimizers, fdir, True)
 
     print('finished. best_prec: {:.4f}'.format(best_prec))
 
@@ -471,7 +471,7 @@ def validate(val_loader, models, gates, criterion, num_classes, verbose=False):
 #     if is_best:
 #         shutil.copyfile(filepath, os.path.join(fdir, 'model_best.pth.tar'))
 
-def save_checkpoint(epoch, model_num, models, optimizers, gate, gate_optimizer, fdir, isGate=False):
+def save_checkpoint(epoch, model_num, models, optimizers, gates, gate_optimizers, fdir, isGate=False):
     global ckpt_iter
     print('save checkpoint ... epoch {}, fdir {}'.format(epoch, fdir))
     addition = ''
@@ -483,12 +483,14 @@ def save_checkpoint(epoch, model_num, models, optimizers, gate, gate_optimizer, 
     state = {
         'epoch' : epoch + 1,
         'model_num': model_num,
-        'gate': gate.state_dict(),
-        'gate_optimizer': gate_optimizer.state_dict(),
+        # 'gate': gate.state_dict(),
+        # 'gate_optimizer': gate_optimizer.state_dict(),
     }
     for i in range(model_num):
         state['model-{}'.format(i)] = models[i].state_dict()
         state['optimizer-{}'.format(i)] = optimizers[i].state_dict()
+        state['gate-{}'.format(i)] = gates[i].state_dict()
+        state['gate-optimizer-{}'.format(i)] = gate_optimizers[i].state_dict()
     torch.save(state, filepath)
 
 def adjust_learning_rate(optimizer, epoch):
