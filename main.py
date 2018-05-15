@@ -79,6 +79,7 @@ def main():
         for i in range(0, args.model_num):
             # model = resnet32_cifar(num_classes=args.cifar_type)
             model = resnet(depth=20, num_classes=args.cifar_type)
+            # model = vgg16(num_classes=args.cifar_type)
             model = nn.DataParallel(model).cuda()
             optimizer = optim.SGD(model.parameters(), args.lr, momentum=args.momentum, weight_decay=args.weight_decay,
                                   nesterov=True)
@@ -131,7 +132,7 @@ def main():
         # trainloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=2)
 
 
-        for i in range(model_num):
+        for i in range(args.model_num):
             bagging_dataset = BagDataset(train_dataset)
             trainloader = torch.utils.data.DataLoader(bagging_dataset, batch_size=args.batch_size, shuffle=True, num_workers=2)
             trainloaders.append(trainloader)
@@ -188,7 +189,7 @@ def main():
         print('Epoch: {0}\t LR = {lr:.4f}'.format(epoch, lr=now_learning_rate))
         # train for one epoch
 
-        for i in range(model_num):
+        for i in range(args.model_num):
             train(trainloaders[i], criterion, models[i], optimizers[i], gate, gate_optimizer, epoch)
         # train(trainloader, criterion, models, optimizers, gate, gate_optimizer, epoch)
 
@@ -244,6 +245,7 @@ def train(trainloader, criterion, model, optimizer, gate, gate_optimizer, epoch)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+    print('train .. finished.')
 
 
 def validate(val_loader, models, gate, criterion):
