@@ -30,6 +30,7 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true', he
 parser.add_argument('-ct', '--cifar-type', default='10', type=int, metavar='CT', help='10 for cifar10,100 for cifar100 (default: 10)')
 parser.add_argument('--model-num', default='2', type=int, metavar='MN', help='the number of models')
 parser.add_argument('--gate-type', default='1', type=int, metavar='GT', help='the type of gate')
+parser.add_argument('--name', default='', type=str, metavar='NM')
 
 best_prec = 0
 now_learning_rate = 0
@@ -82,8 +83,8 @@ def main():
         models = []
         optimizers = []
         for i in range(0, args.model_num):
-            model = resnet(depth=20, num_classes=args.cifar_type)
-            # model = vgg16(num_classes=args.cifar_type)
+            # model = resnet(depth=20, num_classes=args.cifar_type)
+            model = vgg16(num_classes=args.cifar_type)
             # model = resnet32_cifar(num_classes=args.cifar_type)
 
             model = nn.DataParallel(model).cuda()
@@ -125,8 +126,8 @@ def main():
             train=True,
             download=True,
             transform=transforms.Compose([
-                transforms.RandomCrop(32, padding=4),
-                transforms.RandomHorizontalFlip(),
+                # transforms.RandomCrop(32, padding=4),
+                # transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 normalize,
             ]))
