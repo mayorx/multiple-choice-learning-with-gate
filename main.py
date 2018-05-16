@@ -123,8 +123,8 @@ def main():
             train=True, 
             download=True,
             transform=transforms.Compose([
-                transforms.RandomCrop(32, padding=4),
-                transforms.RandomHorizontalFlip(),
+                # transforms.RandomCrop(32, padding=4),
+                # transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 normalize,
             ]))
@@ -133,8 +133,8 @@ def main():
 
 
         for i in range(args.model_num):
-            bagging_dataset = BagDataset(train_dataset)
-            trainloader = torch.utils.data.DataLoader(bagging_dataset, batch_size=args.batch_size, shuffle=True, num_workers=2)
+            # bagging_dataset = BagDataset(train_dataset)
+            trainloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=2)
             trainloaders.append(trainloader)
 
         test_dataset = torchvision.datasets.CIFAR10(
